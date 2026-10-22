@@ -11,6 +11,7 @@ import bpy
 from mathutils import Vector
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from blender_export import stats, clear_scene
+from mesh_budget import MIN_TRIANGLES, MAX_TRIANGLES
 
 
 def compare(expected, actual, tolerance=1e-4):
@@ -127,7 +128,7 @@ def main():
     args = parser.parse_args(sys.argv[sys.argv.index('--')+1:])
     args.input = args.input.resolve(strict=True)
     out = args.output_dir.resolve()
-    if not .1 <= args.height <= 20 or not 5000 <= args.triangles <= 200000:
+    if not .1 <= args.height <= 20 or not MIN_TRIANGLES <= args.triangles <= MAX_TRIANGLES:
         raise ValueError('Invalid Unity size or triangle budget')
     out.mkdir(exist_ok=False)
     digest = hashlib.sha256(args.input.read_bytes()).hexdigest()

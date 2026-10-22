@@ -2,11 +2,19 @@
 
 ## Objective and current scope
 
+The owner requests per-field help in section 02 and lower triangle budgets for
+performance-oriented assets. Keep help accessible and explain the visual/cost
+tradeoffs. Web validation and both Blender paths accept 500–200,000 triangles;
+reduce geometry before UV/color baking. Reuse an existing mesh for export
+verification; do not imply fewer exported triangles reduce neural inference.
+
 The owner requests history reuse: selecting a previous asset must restore its
 original reference uploads and generation settings into sections 01 and 02.
 Preserve old results; resubmission creates a separate job. Do not restore from
 processed cutouts or discard unselected extras. Progress polling must preserve
 draft edits, and incomplete or stale restores must not mix inputs across jobs.
+Create an asset must clear images and name, reset settings to their defaults,
+and hide the previous result without deleting history or repopulating on polling.
 
 The owner requests improved color baking for small pixel-art references. Broader
 bounded camera fitting and source-resolution-independent visibility are allowed.

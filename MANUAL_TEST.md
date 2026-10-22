@@ -30,11 +30,21 @@ Its 76.7% UV-texel color coverage includes an automatically selected extra photo
 
 ## Review
 
+- Open the **!** beside a setting in section 02, including Advanced options.
+  Confirm its explanation is readable, another info icon replaces it, and
+  clicking outside or pressing Escape closes it without changing the setting.
+- Select a lower triangle budget, such as **1,000** or **5,000**, for a separate
+  variation. Inspect silhouette/thin parts and the exported triangle count.
+  Texture size and generation quality are separate controls; fewer exported
+  triangles alone do not establish runtime performance.
 - Choose a previous asset in **Recent assets**. Confirm sections **01** and **02**
   restore its original labelled photos, all extras and settings, including
   advanced options. Edit the name and wait for a progress refresh: the edit
   should remain. **Generate asset** submits a new job without changing the old
   result; there is no need to generate just to check that restoration works.
+  Then choose **Create an asset**: name/images should be empty, options should
+  return to defaults and the old result should hide. History must remain, and
+  waiting for refresh must not fill the empty form again.
 - Expand **selected / submitted photos**. Each upload should have a selected or
   skipped reason. Confirm that selected directions match your subject. At most
   four photos condition Hunyuan and supply color. Extras improve input selection;

@@ -162,6 +162,9 @@ app's **Cancel generation** button when you only want to stop a job.
    Under **Unseen surface colors**, keep neutral gray for a diagnostic view or
    select **Extend nearby colors · estimated** to reduce gray gaps. Estimated
    color is labelled separately and does not increase photo coverage.
+   Click the **!** beside any setting, including advanced options, for its
+   meaning and effect on shape, color or processing. Click outside or press
+   **Escape** to close the info box.
 7. Click **Generate asset**. Watch progress and prepared cutouts. Jobs are queued
    and run one at a time. Use **Cancel generation** to stop a queued/running job.
 8. Inspect the final mesh: drag to rotate, scroll to zoom and use **Wireframe**
@@ -178,10 +181,24 @@ advanced options. Adjust them if needed, then click **Generate asset** to create
 a separate history item. The original asset stays unchanged. Automatic progress
 refreshes preserve your edits. If an original upload is missing, the app reports
 the problem and leaves your previous inputs unchanged.
+**Create an asset** clears the name and all images, restores default settings
+and hides the previous result. Saved history is kept.
 
 Advanced options include a 512- or 1024-pixel color atlas. Older history entries
 use the defaults for settings they predate. Reusing inputs/settings does not
 guarantee an identical mesh: generation and view selection can vary between runs.
+
+For lower-poly assets, the triangle budget offers **500**, **1,000**, **2,500**,
+**5,000** and **10,000**, alongside the existing higher budgets. Simplification
+happens before UV/color baking, so exported geometry and its colors agree.
+Very small budgets can remove thin parts, soften silhouettes or lose small
+details. Inspect the actual exported triangle count and the mesh from all sides.
+This is automatic mesh reduction, not authored low-poly retopology or automatic LODs.
+Lower budgets reduce geometry to store and draw; they do not lower Hunyuan's
+generation steps or texture size. **Balanced** controls shape-generation work;
+**512 × 512** in advanced options reduces the color atlas to one quarter as many
+pixels as 1024 × 1024. Actual game performance depends on the full scene and
+Unity's import/material settings; it is not established by triangle count alone.
 
 The default **Automatic preset** planner works without a language model.
 Advanced options allow one additional seed after geometric rejection, capped at

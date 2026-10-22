@@ -21,6 +21,7 @@ from PIL import Image
 from filelock import FileLock
 from native_process import OwnedProcess
 from runtime_paths import project_python, asset_root
+from mesh_budget import MIN_TRIANGLES, MAX_TRIANGLES
 from app_views import ANGLES, DIRECTIONS, MAX_CANDIDATES, MAX_TOTAL_BYTES, HYBRID_STRATEGY
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -62,7 +63,7 @@ def validate_request(data):
             raise ValueError(f'Invalid {key}')
     if type(settings['texture_size']) is not int or settings['texture_size'] not in (512,1024):
         raise ValueError('Invalid texture size')
-    for key, low, high in (('max_attempts', 1, 2), ('triangles', 5000, 200000)):
+    for key, low, high in (('max_attempts', 1, 2), ('triangles', MIN_TRIANGLES, MAX_TRIANGLES)):
         if type(settings[key]) is not int or not low <= settings[key] <= high:
             raise ValueError(f'Invalid {key}')
     if type(settings['height']) not in (int, float) or not .1 <= settings['height'] <= 20:

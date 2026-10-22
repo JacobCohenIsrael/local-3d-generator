@@ -10,6 +10,7 @@ import numpy as np
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from blender_unity import prepare_geometry
 from blender_export import stats
+from mesh_budget import MIN_TRIANGLES, MAX_TRIANGLES
 
 
 def main():
@@ -19,7 +20,7 @@ def main():
     parser.add_argument('--height',type=float,required=True)
     parser.add_argument('--triangles',type=int,required=True)
     args = parser.parse_args(sys.argv[sys.argv.index('--')+1:])
-    if not .1 <= args.height <= 20 or not 5000 <= args.triangles <= 200000:
+    if not .1 <= args.height <= 20 or not MIN_TRIANGLES <= args.triangles <= MAX_TRIANGLES:
         raise ValueError('Invalid geometry budget')
     out = args.output_dir.resolve()
     out.mkdir(exist_ok=False)

@@ -121,7 +121,7 @@ $('create-form').onsubmit=async event=>{
   }catch(e){error(e.message);}finally{submitting=false;formBusy();}
 };
 $('demo').onclick=()=>loadDraft(async signal=>({job:{name:'Example · multi-view asset',settings:{background:'keep',texture:'photo_basecolor'}},references:await Promise.all(['front','left','back'].map(async anchor=>{const response=await fetch(`/api/demo/${anchor}`,{signal});if(!response.ok)throw new Error('Example images are not installed.');return {anchor,file:new File([await response.blob()],`${anchor}.png`,{type:'image/png'})};}))}),'Three official example views loaded. Click Generate asset.');
-$('new-project').onclick=()=>{if(submitting)return;cancelRestore();$('reuse-status').hidden=true;error('');selected=null;autoSelect=false;$('result').hidden=true;$('name').focus();window.scrollTo({top:0,behavior:'smooth'});renderHistory();};
+$('new-project').onclick=()=>{if(submitting)return;cancelRestore();applyReferences([]);applySettings({name:'',settings:{texture:'photo_basecolor'}});$('extra-input').value='';$('advanced-options').open=false;$('reuse-status').hidden=true;error('');selected=null;autoSelect=false;$('result').hidden=true;$('name').focus();window.scrollTo({top:0,behavior:'smooth'});renderHistory();};
 $('cancel').onclick=async()=>{if(!selected)return;try{await api(`/api/jobs/${selected}/cancel`,{});toast('Cancellation requested.');await refresh();}catch(e){toast(e.message);}};
 function renderHistory(){const history=$('history');history.replaceChildren();$('job-count').textContent=jobs.length;
   if(!jobs.length)history.append(text('p','Your generations will appear here.','muted small'));

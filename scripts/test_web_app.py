@@ -102,6 +102,17 @@ class WebTests(unittest.TestCase):
             with self.subTest(data=data), self.assertRaises((ValueError, OSError)):
                 validate_request(data)
 
+    def test_low_poly_budgets_persist_and_reject_out_of_range_values(self):
+        for budget in (500, 1000, 2500, 5000, 10000, 200000):
+            with self.subTest(budget=budget):
+                data = dict(request_data(), settings={'triangles': budget})
+                job_id = self.app.create(data)
+                saved = json.loads((self.app.jobs / job_id / 'job.json').read_text())
+                self.assertEqual(saved['settings']['triangles'], budget)
+        for budget in (0, 499, 200001, True, 500.0, '500'):
+            with self.subTest(invalid_budget=budget), self.assertRaises(ValueError):
+                validate_request(dict(request_data(), settings={'triangles': budget}))
+
     def test_http_csrf_host_origin_and_file_boundary(self):
         server = ThreadingHTTPServer(('127.0.0.1', 0), handler(self.app, 0))
         port = server.server_address[1]
