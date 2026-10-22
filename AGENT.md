@@ -2,6 +2,12 @@
 
 ## Objective and current scope
 
+This worktree's owner-requested scope is texture feasibility investigation:
+source/dependency/resource checks, lightweight synthetic material/export probes,
+and an evidence-backed plan. This does not authorize a large texture-generation
+run or changes to the primary project's environment. Keep machine-specific
+evidence in ignored work/ files and public documentation portable.
+
 Owner steering on 22 October 2026 expands the scope to a local web app with
 image uploads, genuine multi-view generation, autonomous jobs and Unity FBX.
 The app may prepare cutouts and run one generation plus at most one additional

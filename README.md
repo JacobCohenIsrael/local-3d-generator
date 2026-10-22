@@ -224,6 +224,11 @@ included in this public repository.
 
 ## Verification and project notes
 
+Texture support is being investigated separately; the app still exports
+untextured meshes. See [texture feasibility and implementation plan](docs/TEXTURE_FEASIBILITY.md)
+for native Windows prerequisites, memory tradeoffs and the verified synthetic
+CPU-bake/FBX material-transport probe.
+
 A real three-view example completed automatic foreground removal and produced
 a **50,000-triangle FBX** at 1.8 meters.
 The FBX reopened with matching geometry/scale and the browser rendered the mesh.

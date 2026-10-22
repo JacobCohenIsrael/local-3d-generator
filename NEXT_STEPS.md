@@ -1,36 +1,33 @@
-# Current checkpoint
+# Current checkpoint: texture feasibility fork
 
-## Done
+## Completed
 
-- Native Windows web app: image uploads, local CPU cutouts, persistent SQLite
-  queue, sequential CUDA inference, progress/history, cancellation, optional
-  Strata planning, interactive offline viewer and Unity FBX/ZIP downloads.
-- One reference uses Hunyuan3D-2.1; multiple labelled views use the separate
-  official Hunyuan3D-2mv model. Upstream revisions are pinned in upstream.json.
-- Jobs run independently of Codex with bounded geometry-rejection retries,
-  process-tree ownership, deadlines and explicit cancellation.
-- End-to-end multi-view validation produced a 50,000-triangle FBX at the
-  requested height. Blender reimport retained geometry and world bounds.
-  Download integrity, process shutdown and interactive rendering were checked.
-- Tests cover process lifecycle, invalid plans/settings/images, request-origin
-  boundaries, queue persistence/recovery, cancellation and bounded retries.
-- Public documentation covers installation, usage, Unity import, optional Strata
-  and troubleshooting. Original shape-only validation is in FIRST_RUN.md.
-- Privacy cleanup replaces host-specific paths with configurable discovery or
-  local CLI arguments. Host inventories, activity timestamps and raw telemetry
-  stay in ignored local evidence. Commits use the GitHub noreply identity.
+- Isolated branch: codex/texture-feasibility. The running app and its primary
+  environment remain unchanged.
+- Audited pinned official Paint 2.1 and 2.0 source, native build requirements,
+  CPU-offload paths, reference-image conditioning and material export behavior.
+- Read-only runtime/toolchain inventory and official model file manifests saved
+  under ignored work/. No paint weights downloaded and no dependencies installed.
+- Synthetic Blender CPU bake passed. Fresh FBX reimport retained UVs and resolved
+  the external base-color PNG with the same hash. GLB contained an embedded image
+  and fresh import retained UVs/material texture. Owned process shutdown confirmed.
+- docs/TEXTURE_FEASIBILITY.md records the recommendation, source links,
+  limitations, material/Unity contract, integration changes and acceptance gates.
+- Added reusable read-only readiness and synthetic bake/roundtrip probe scripts.
+  README links the report without claiming texture support is implemented.
+- All 15 existing regression checks passed on the sanitized base. Probe scripts
+  parsed successfully; no primary environment or running service was modified.
 
-## Left
+## Recommendation / next work
 
-- Owner reviews likeness and suitability of new generated assets.
-- Validate the FBX in an actual Unity Editor project; Blender checks alone do
-  not establish game readiness or animation topology.
-- Separate worktrees are investigating texture support and implementing a
-  clearly labelled workflow for more than four candidate views. Their changes
-  remain isolated from main until reviewed.
-- Rebase local development work onto the sanitized main history before publishing.
-  Do not merge old ancestry or reintroduce personal metadata/host paths.
-- Texture generation, rigging, LOD and collider setup remain separate features.
-
-Runtime inputs, model weights, generated assets, local paths and detailed
-resource evidence remain Git-ignored. No general speed/cost saving is claimed.
+- Build the material-aware export/preview/ZIP contract first.
+- Add photo base-color projection for aligned consistent views, with a coverage
+  mask and explicit unknown-surface behavior; alignment is not yet verified.
+- Evaluate Paint 2.0 with CPU offload as the first neural-color experiment in a
+  separate texture environment after native build/import checks pass.
+- Keep Paint 2.1 PBR experimental: its documented configuration exceeds the
+  16 GB VRAM target, and its wrapper lacks complete texture CPU offload.
+- Actual neural texture generation, real-photo camera alignment and Unity Editor
+  import remain untested. Existing app settings and shape pipeline are unchanged.
+- Rebased onto sanitized main b652be390f353ef7a1eb286143d3621e5b828ee1.
+  No old ancestry is retained; no merge/push to main was performed.
