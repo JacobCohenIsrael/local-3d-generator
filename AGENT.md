@@ -126,3 +126,9 @@ requirements and upstream dependency versions may be documented.
 
 These instructions govern this project. Unrelated projects' tasks and timing
 policies remain separate and are not started by this work.
+
+## Installation assistance
+
+For setup requests, follow SETUP_AGENT.md and the detailed SETUP.md guide.
+Use scripts/install.ps1 (-CheckOnly for prerequisites only). Setup verification
+checks imports/CUDA and HTTP/model readiness; it does not authorize generation.

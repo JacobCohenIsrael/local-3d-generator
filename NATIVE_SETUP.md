@@ -2,7 +2,7 @@
 
 The native Strata/Hunyuan3D/Blender pipeline has completed real image-to-mesh
 validation. See [FIRST_RUN.md](FIRST_RUN.md) for functional results and
-[README.md](README.md) for fresh installation and everyday web-app use.
+[SETUP.md](SETUP.md) for fresh installation and everyday web-app use.
 
 Machine-specific paths, hardware inventories and resource telemetry belong in
 ignored local reports, not in this public document.

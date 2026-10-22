@@ -4,7 +4,7 @@
 
 From the primary project folder, double-click **Start Local 3D.cmd** and open
 http://127.0.0.1:8765. The prepared local installation has Strata vision configured.
-For a fresh machine, follow README.md and its extra-photo recognition setup first.
+For a fresh machine, follow [SETUP.md](SETUP.md) and its extra-photo recognition setup first.
 Closing the browser leaves submitted jobs running; launch again after a reboot.
 The app does not require Codex.
 
