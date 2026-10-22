@@ -18,10 +18,21 @@
   finding. Its documentation findings are reconciled in README and WEB_APP.
 - MANUAL_TEST.md explains the combined upload-to-Unity acceptance workflow.
 
-## Integration checkpoint
+## Primary app and manual test
 
-- Preparing the durable primary vision configuration and one combined native
-  smoke test before the final push and manual-test handoff.
+- Both branches are merged with resolved conflicts. The primary main checkout
+  now serves the combined app on port 8765. Its own verified vision encoder and
+  project config are prepared; shared Strata/base config is unchanged.
+- Combined six-photo browser test passed: front/back anchors plus unlabelled
+  left selected, three duplicates skipped, one fresh shape attempt, photo bake,
+  Blender export and portable ZIP with audit. Measured 187 seconds, 50,000
+  triangles, 1.8 meters and 76.7% UV-texel color coverage.
+- Relocated FBX import, UV/image hashes, selected-extra provenance, GLB embedded
+  pixels and ZIP CRC/map/audit checks passed. Raw mesh unchanged; owned heavy
+  stages stopped. Existing jobs and prior demos remain preserved.
+- Next action is the owner's manual test using MANUAL_TEST.md: consistent front
+  plus optional anchors/extras, photo color enabled, inspect selection and model,
+  download ZIP and assign base color in Unity. No further generation is required.
 - Keep private photos, generated assets, model weights, host paths and telemetry
   under ignored runtime directories. Retain prior demos and raw meshes.
 - No neural Paint, generated PBR maps, rig or animation. Approximate photo fitting

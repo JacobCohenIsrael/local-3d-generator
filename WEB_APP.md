@@ -112,6 +112,15 @@ own licenses. This project's MIT license does not relicense them.
 
 ## Verification
 
+The integrated primary app completed a six-upload browser test: front/back
+anchors, an unlabelled side and three duplicate-front extras. Real Strata vision
+selected three directions; Hunyuan generated one mesh; photo baking used those
+same selected cutouts. The full run took 187 seconds, exported 50,000 triangles
+at 1.8 meters and covered 76.7% of UV texels. The ZIP's audit/maps, selected-source
+hashes, embedded GLB pixels and relocated Blender FBX reimport all passed.
+All owned heavy stages stopped. The primary upload form is ready for manual
+photos; MANUAL_TEST.md describes acceptance in Unity.
+
 An end-to-end job ran through the real HTTP queue with Tencent's official
 front/left/back example, composited to opaque images to exercise automatic
 foreground removal. It passed on its first seed, used every view with

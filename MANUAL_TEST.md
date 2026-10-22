@@ -8,6 +8,10 @@ For a fresh machine, follow README.md and its extra-photo recognition setup firs
 Closing the browser leaves submitted jobs running; launch again after a reboot.
 The app does not require Codex.
 
+The history contains **Combined demo · extra photos and colors** as a reference:
+six uploads, three selected directions and a textured 50,000-triangle export.
+Its 76.7% UV-texel color coverage includes an automatically selected extra photo.
+
 ## Your photos
 
 1. Upload a clear **front** view. Optional **left/back/right** photos act as

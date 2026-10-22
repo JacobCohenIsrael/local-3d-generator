@@ -287,6 +287,14 @@ included in this public repository.
 
 ## Verification and project notes
 
+The combined primary-app smoke test submitted **six photos** through the browser.
+Strata selected front/back anchors plus an unlabelled left photo and skipped three
+duplicates. The same selected cutouts supplied photo color. The first shape attempt
+finished the full workflow in **187 seconds**, producing a **50,000-triangle**
+textured FBX at **1.8 meters** with **76.7% UV-texel color coverage**. The downloaded
+ZIP retained maps and the selection audit; a relocated fresh Blender import and
+embedded GLB pixel checks passed. This is one example, not an accuracy benchmark.
+
 Photo base-color baking is implemented. The fresh official front/left/back demo
 completed the HTTP queue in **177 seconds**, producing a **50,000-triangle** FBX
 at **1.8 meters** with **75.7% UV-texel color coverage**. A fresh Blender import
