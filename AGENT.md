@@ -132,3 +132,10 @@ policies remain separate and are not started by this work.
 For setup requests, follow SETUP_AGENT.md and the detailed SETUP.md guide.
 Use scripts/install.ps1 (-CheckOnly for prerequisites only). Setup verification
 checks imports/CUDA and HTTP/model readiness; it does not authorize generation.
+
+## MCP integration (owner steering, 22 October 2026)
+
+The owner explicitly requests an MCP server, superseding the original milestone's
+MCP exclusion. Follow MCP.md. The stdio bridge shares the running web app queue;
+check local3d_status before using it. Do not start generation as setup verification.
+Keep protocol dependencies separate from the pinned shape environment.

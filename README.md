@@ -51,6 +51,12 @@ The **[agent setup guide](SETUP_AGENT.md)** includes checks, recovery steps and
 a clear handoff. The installer handles the project environment; prerequisites
 and large model downloads still make this more than a tiny package install.
 
+## Connect your agents
+
+Use the **[MCP setup guide](MCP.md)** to connect Claude Code, Codex or another
+project. Agents can check availability, generate assets and retrieve exports
+through the running local app.
+
 ## Explore
 
 - [Use the app and import into Unity](SETUP.md#generate-an-asset)
