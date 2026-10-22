@@ -8,6 +8,7 @@ import time
 import numpy as np
 from PIL import Image
 from scipy import ndimage
+from app_views import conditioned_views
 from photo_projection import atlas_surface, fit_camera, sample_view, linear_to_srgb
 
 
@@ -19,6 +20,7 @@ def bake(job_dir, geometry, output, size=1024):
     started = time.monotonic()
     output.mkdir(parents=True, exist_ok=False)
     job = json.loads((job_dir/'job.json').read_text())
+    selected_views = conditioned_views(job_dir,job)
     provenance = json.loads((job_dir/'prepared/provenance.json').read_text())
     with np.load(geometry, allow_pickle=False) as data:
         vertices, faces, uv, normals = (data[name] for name in ('vertices','faces','uv','normals'))
@@ -30,7 +32,7 @@ def bake(job_dir, geometry, output, size=1024):
     selected_view = np.full(len(points),-1,np.int16)
     view_reports = {}
     warnings = []
-    for view_index,view in enumerate(job['views']):
+    for view_index,view in enumerate(selected_views):
         path = job_dir/'prepared'/f'{view}.png'
         if digest(path) != provenance['views'][view]['sha256']:
             raise ValueError(f'{view} reference integrity check failed')
@@ -38,7 +40,9 @@ def bake(job_dir, geometry, output, size=1024):
             rgba = np.asarray(image.convert('RGBA'), dtype=np.float32)/255
         camera = fit_camera(vertices, faces, rgba[:, :, 3], view)
         accepted = camera['silhouette_iou'] >= .40
-        view_reports[view] = dict(camera, accepted=accepted, source_sha256=digest(path))
+        source = provenance['views'][view]
+        view_reports[view] = dict(camera, accepted=accepted, source_sha256=digest(path),
+            candidate_id=source.get('candidate_id',view),original_sha256=source.get('original_sha256'))
         if not accepted:
             warnings.append(f'{view}: silhouette fit rejected; use a more consistent angle/pose')
             continue
@@ -52,7 +56,7 @@ def bake(job_dir, geometry, output, size=1024):
         view_reports[view]['contributing_texels'] = int(np.count_nonzero(weight > 1e-5))
         print(f'{view}: fit {camera["silhouette_iou"]:.3f}, contributes {(weight>1e-5).sum()} texels', flush=True)
     covered = weights > 1e-5
-    for view_index,view in enumerate(job['views']):
+    for view_index,view in enumerate(selected_views):
         view_reports[view]['selected_texels'] = int(np.count_nonzero(covered & (selected_view==view_index)))
     coverage = float(covered.mean()) if len(covered) else 0
     if coverage < .20:

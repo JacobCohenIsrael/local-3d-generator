@@ -4,6 +4,11 @@
 
 Run the local app, choose **Try an example** or upload consistent labelled
 views, and leave **Surface color > Bake colors from your photos** selected.
+With extras, Strata selects canonical front/left/back/right cutouts first. The
+bake uses those same winners, including extras that fill directions or replace
+anchors, and records their candidate IDs and original/source hashes. Unselected
+photos remain saved but do not contribute color. The ZIP also retains
+`view-selection.json`. See [MORE_ANGLES.md](../MORE_ANGLES.md).
 Submit a job; no Codex process or browser tab is needed for it to finish.
 The default web workflow uses the bounded preset planner. Optional Strata
 planning is unchanged and does not inspect photo contents.
@@ -94,6 +99,10 @@ The browser's textured, clay and wireframe modes and actual ZIP download were
 verified. Remaining seams, uncovered gray areas and shape inaccuracies are
 visible limitations; passing file checks does not establish likeness. All
 **24 regression tests** passed. No Unity Editor import is claimed.
+
+Combined integration adds a regression where only front was labelled, an extra
+replaces it, and another extra fills back. The bake must use both selected files
+and preserve their source IDs. The combined suite has 40 passing tests.
 
 Run the regression suite without loading GPU models:
 

@@ -12,6 +12,9 @@ task or automatic Windows startup entry is installed.
    JPEG, PNG and WebP are accepted, up to 12 MB and 20 megapixels per image.
    Keep pose, framing, lighting and distance consistent. Transparent PNGs work
    best; otherwise choose automatic background removal for objects or people.
+   Drop extra photos without angle labels, up to 16 total / 48 MiB. Strata vision
+   compares them with trusted anchors and selects at most four supported inputs.
+   Review each selected/skipped reason in the result. See MORE_ANGLES.md.
 2. Name the asset, choose quality, height in meters and a triangle budget.
    Surface color defaults to **Bake colors from your photos**. Choose
    **Untextured mesh** to skip UV/color processing.
@@ -23,16 +26,16 @@ task or automatic Windows startup entry is installed.
    0.2. Coverage/UV masks are diagnostics, never opacity maps. These are static
    meshes: no generated PBR maps, rig, animations, collision setup or LOD system.
 
-One reference uses the existing Hunyuan3D-2.1 checkpoint. Two to four labelled
-views use Tencent's separate **Hunyuan3D-2mv** checkpoint, with every supplied
-view passed to its multi-view image processor. Uploads are not combined into a
-collage or silently ignored. This is generative reconstruction, not calibrated
+One selected reference uses Hunyuan3D-2.1. Two to four selected cardinal views
+use **Hunyuan3D-2mv**. All candidates are prepared and audited; only the selected
+cutouts condition the model and supply photo color. This is candidate selection,
+not fusion of every upload, and not calibrated
 photogrammetry; extra views do not guarantee correct faces, hands or backs.
 
-The default preset avoids loading the large Strata language model, which came
-close to exhausting host RAM in earlier tests. Advanced options can use Strata
-to choose settings from metadata; it does not have photo vision. Either option
-runs autonomously. Nothing depends on Codex messages or approvals at job time.
+With labelled references alone, the preset avoids loading Strata. Unlabelled
+extras automatically trigger local Strata vision with its own project config.
+Advanced options independently allow Strata settings planning from metadata.
+All stages run autonomously without Codex messages or approvals at job time.
 
 ## Automatic processing
 
@@ -75,13 +78,17 @@ the job. Neural Paint is not used. See [PHOTO_BAKING.md](docs/PHOTO_BAKING.md).
 - Closing a browser tab leaves the app/worker running. App restart retains
   finished results and pending jobs; an in-flight job is marked interrupted,
   not secretly rerun. Cancellation closes the owned Windows process tree.
-- At most 10 queued/running jobs. Preparation 240 seconds, optional Strata
-  600 seconds, each shape attempt 1,200 seconds, UV preparation 300 seconds,
+- At most 10 queued/running jobs. Preparation 240 seconds, photo recognition
+  900 seconds, optional Strata settings planning 600 seconds, each shape attempt
+  1,200 seconds, UV preparation 300 seconds,
   photo baking 600 seconds, Blender export 300 seconds and overall
   job 3,600 seconds. Jobs stop if a deadline, cancellation or process error occurs.
 - At least 8 GiB free system RAM and 10,000 MiB free GPU memory are required at
   job start. These checks are floors, not guarantees of memory fit. Work is
   sequential and existing hardware protections remain unchanged.
+- Vision needs 12 GiB available RAM before loading and stops below 2 GiB. Its
+  engine/encoder stop before Hunyuan loads, and resources are checked again.
+  Invalid observations skip a photo; engine failures stop without restart.
 - Loopback binding only, checked Host/Origin, per-launch request token, fixed
   download paths and image size/format validation. The app is intended for
   this one machine; it is not a publicly hosted or multi-user service.
@@ -124,7 +131,7 @@ Photo-color verification adds depth occlusion, cardinal camera handedness,
 degenerate UV handling, unseen-surface neutrality, reference hash checks,
 competing photo colors, bounded texture settings, bake-failure fallback and
 deadline/cancellation propagation. A real color demo and relocated ZIP check
-are recorded in [PHOTO_BAKING.md](docs/PHOTO_BAKING.md). All 24 regression checks
+are recorded in [PHOTO_BAKING.md](docs/PHOTO_BAKING.md). All 40 regression checks
 passed. The corrected color demo completed in 177 seconds with 75.7% UV-texel
 coverage and a 50,000-triangle FBX; browser color/clay/wireframe controls and the
 ZIP download were exercised. Unity Editor import

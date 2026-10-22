@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+const nodes=new Map();
+function node(tag='div'){return {tagName:tag.toUpperCase(),children:[],dataset:{},classList:{add(){},remove(){}},value:'',hidden:false,disabled:false,append(...children){this.children.push(...children);},replaceChildren(...children){this.children=children;},setAttribute(){},focus(){},scrollIntoView(){},querySelector(){return node();}};}
+const get=id=>{if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);};
+const document={getElementById:get,createElement:node,createTextNode:text=>({textContent:text}),querySelector:()=>({content:'test-token'})};
+for(const [id,value] of Object.entries({name:'Drop test',quality:'balanced',background:'keep','texture-mode':'photo_basecolor',planner:'preset',attempts:'1',triangles:'50000',height:'1.8'}))get(id).value=value;
+let submitted;
+const fetch=async (url,options)=>{if(options){submitted=JSON.parse(options.body);return {ok:true,json:async()=>({id:'test'})};}return {ok:true,json:async()=>[]};};
+class FileReader{readAsDataURL(){this.result='data:image/png;base64,TEST';this.onload();}}
+const code=await readFile(new URL('../web/app.js',import.meta.url),'utf8');
+const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+await new AsyncFunction('document','URL','fetch','FileReader','setInterval','setTimeout',code)(document,{createObjectURL:()=> 'blob:test',revokeObjectURL(){}},fetch,FileReader,()=>{},()=>{});
+const file=name=>({name,size:1024,type:'image/png'});
+let prevented=0;
+get('slot-front').ondrop({preventDefault(){prevented++;},dataTransfer:{files:[file('front.png')]}});
+get('extra-drop').ondrop({preventDefault(){prevented++;},dataTransfer:{files:[file('side.png'),file('rear.png')]}});
+assert.equal(prevented,2);
+assert.equal(get('extra-list').children.length,2);
+assert.equal(get('candidate-count').textContent,'3 / 16 images');
+const hasInput=element=>element.tagName==='INPUT'||(element.children||[]).some(hasInput);
+assert.equal(hasInput(get('extra-list')),false);
+await get('create-form').onsubmit({preventDefault(){}});
+assert.equal(submitted.view_strategy,'hybrid_vision_v1');
+assert.deepEqual(Object.keys(submitted.views),['front']);
+assert.equal(submitted.extra_views.length,2);
+assert.equal(submitted.extra_views.some(x=>'azimuth' in x),false);
+assert.equal(submitted.settings.texture,'photo_basecolor');
+assert.equal(submitted.settings.texture_size,1024);
+get('extra-list').children[0].children[2].onclick();
+assert.equal(get('extra-list').children.length,1);
+get('extra-drop').ondrop({preventDefault(){},dataTransfer:{files:[{name:'bad.txt',size:1,type:'text/plain'}]}});
+assert.match(get('form-error').textContent,/JPEG/);
+assert.equal(get('extra-list').children.length,1);
+console.log('PASS: multi-file drop, no angle fields, angle-free submit, remove, invalid type');

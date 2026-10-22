@@ -21,9 +21,10 @@ from PIL import Image
 from filelock import FileLock
 from native_process import OwnedProcess
 from runtime_paths import project_python, asset_root
+from app_views import ANGLES, DIRECTIONS, MAX_CANDIDATES, MAX_TOTAL_BYTES, HYBRID_STRATEGY
 
 ROOT = Path(__file__).resolve().parents[1]
-VIEWS = ('front', 'left', 'back', 'right')
+VIEWS = DIRECTIONS
 MAX_FILE = 12 * 1024 * 1024
 Image.MAX_IMAGE_PIXELS = 20_000_000
 ASSETS = {'fbx': ('asset/asset.fbx', 'application/octet-stream'),
@@ -34,7 +35,8 @@ ASSETS = {'fbx': ('asset/asset.fbx', 'application/octet-stream'),
           'report': ('report.json', 'application/json'),
           'color': ('asset/textures/basecolor.png','image/png'),
           'coverage': ('asset/textures/coverage.png','image/png'),
-          'material': ('asset/material-manifest.json','application/json')}
+          'material': ('asset/material-manifest.json','application/json'),
+          'selection': ('view-selection.json','application/json')}
 
 
 def validate_request(data):
@@ -67,11 +69,29 @@ def validate_request(data):
     supplied = data.get('views')
     if not isinstance(supplied, dict) or not supplied or set(supplied) - set(VIEWS) or 'front' not in supplied:
         raise ValueError('Upload a front view; use only front, left, back and right labels')
-    views = {}
-    for name_key, encoded in supplied.items():
+    extras = data.get('extra_views', [])
+    if not isinstance(extras, list) or len(supplied) + len(extras) > MAX_CANDIDATES:
+        raise ValueError(f'Upload at most {MAX_CANDIDATES} images in total')
+    if data.get('view_strategy', HYBRID_STRATEGY) != HYBRID_STRATEGY:
+        raise ValueError('This checkpoint supports selection of at most four cardinal views, not all-angle fusion')
+    entries = [(view, view, ANGLES[view], encoded) for view, encoded in supplied.items()]
+    for index, extra in enumerate(extras, 1):
+        if not isinstance(extra, dict):
+            raise ValueError('Invalid extra image')
+        if 'azimuth' in extra:
+            raise ValueError('Extra photos are recognized automatically; omit azimuth')
+        label = extra.get('name', f'Extra image {index}')
+        if not isinstance(label, str) or not 1 <= len(label.strip()) <= 80:
+            raise ValueError('Extra image names must be between 1 and 80 characters')
+        entries.append((f'extra-{index:02}', label.strip(), None, extra.get('image')))
+    views, candidates, total = {}, [], 0
+    for name_key, label, azimuth, encoded in entries:
         if not isinstance(encoded, str) or len(encoded) > MAX_FILE * 4 // 3 + 4:
             raise ValueError('Each image must be smaller than 12 MB')
         content = base64.b64decode(encoded, validate=True)
+        total += len(content)
+        if total > MAX_TOTAL_BYTES:
+            raise ValueError('Combined image size must be at most 48 MB')
         if not content or len(content) > MAX_FILE:
             raise ValueError('Each image must be smaller than 12 MB')
         with Image.open(io.BytesIO(content)) as image:
@@ -79,7 +99,8 @@ def validate_request(data):
                 raise ValueError('Use JPEG, PNG or WebP images, at least 64 pixels wide and tall, under 20 megapixels')
             image.verify()
         views[name_key] = content
-    return name.strip(), settings, views
+        candidates.append({'id': name_key, 'name': label, 'anchor': name_key if name_key in VIEWS else None})
+    return name.strip(), settings, views, candidates
 
 
 class Workshop:
@@ -99,7 +120,7 @@ class Workshop:
         return sqlite3.connect(self.db_path, timeout=15)
 
     def create(self, data):
-        name, settings, views = validate_request(data)
+        name, settings, views, candidates = validate_request(data)
         with self.db() as db:
             if db.execute("SELECT count(*) FROM jobs WHERE state IN ('queued','running')").fetchone()[0] >= 10:
                 raise ValueError('Queue is full (10 jobs). Wait for a job to finish.')
@@ -110,6 +131,7 @@ class Workshop:
             (folder / 'uploads' / f'{view}.image').write_bytes(content)
         created = time.time()
         job = {'id': job_id, 'name': name, 'settings': settings, 'views': [v for v in VIEWS if v in views],
+               'candidates': candidates, 'view_strategy': HYBRID_STRATEGY,
                'created_at': created, 'created_utc': datetime.now(timezone.utc).isoformat()}
         (folder / 'job.json').write_text(json.dumps(job, indent=2))
         with self.db() as db:
@@ -123,7 +145,8 @@ class Workshop:
         for job_id, name, state, created, error in records:
             folder = self.jobs / job_id
             item = {'id': job_id, 'name': name, 'state': state, 'created_at': created, 'error': error}
-            for filename, key in [('progress.json', 'progress'), ('report.json', 'report'), ('job.json', 'job')]:
+            for filename, key in [('progress.json', 'progress'), ('report.json', 'report'), ('job.json', 'job'),
+                                  ('view-selection.json', 'selection')]:
                 try:
                     item[key] = json.loads((folder / filename).read_text())
                 except (FileNotFoundError, json.JSONDecodeError, PermissionError):
@@ -210,6 +233,8 @@ def handler(workshop, port):
                 return self.send(200, workshop.list())
             if path == '/api/health':
                 return self.send(200, {'ready': True, 'mode': 'local', 'version': 2,'photo_baking':True,
+                    'max_candidate_images':MAX_CANDIDATES,'max_conditioned_views':4,'view_strategy':HYBRID_STRATEGY,
+                    'vision_configured':(ROOT/'work/strata-vision.json').is_file(),
                     'multiview_ready': (asset_root(ROOT) / 'models/hunyuan3d-2mv/hunyuan3d-dit-v2-mv/model.fp16.safetensors').is_file(),
                     'single_view_ready': (asset_root(ROOT) / 'models/hunyuan3d-2.1/hunyuan3d-dit-v2-1/model.fp16.ckpt').is_file()})
             if path in ('/api/demo/front', '/api/demo/left', '/api/demo/back'):
@@ -217,7 +242,7 @@ def handler(workshop, port):
                 if demo.is_file():
                     return self.send(200, demo.read_bytes(), 'image/png')
                 return self.send(404, {'error': 'Example images are not installed'})
-            match = re.fullmatch(r'/api/jobs/([a-f0-9]{32})/(files|views)/([a-z]+)', path)
+            match = re.fullmatch(r'/api/jobs/([a-f0-9]{32})/(files|views|candidates)/([a-z][a-z0-9-]{0,31})', path)
             if match:
                 job_id, category, key = match.groups()
                 folder = workshop.jobs / job_id
@@ -226,9 +251,13 @@ def handler(workshop, port):
                     file = folder / name
                     if file.is_file():
                         return self.send(200, file.read_bytes(), mime,
-                            file.name if key in ('fbx', 'blend', 'package', 'report') else None)
+                            file.name if key in ('fbx', 'blend', 'package', 'report', 'selection') else None)
                 elif category == 'views' and key in VIEWS:
                     file = folder / 'prepared' / f'{key}.png'
+                    if file.is_file():
+                        return self.send(200, file.read_bytes(), 'image/png')
+                elif category == 'candidates' and (key in VIEWS or re.fullmatch(r'extra-\d{2}', key)):
+                    file = folder / 'prepared/candidates' / f'{key}.png'
                     if file.is_file():
                         return self.send(200, file.read_bytes(), 'image/png')
                 return self.send(404, {'error': 'File not available'})

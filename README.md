@@ -6,7 +6,10 @@ generation, geometry checks, photo color baking, Blender export and a rotatable 
 jobs run without Codex or an open browser tab.
 
 - **One image:** Hunyuan3D-2.1.
-- **Two to four views:** the separate Hunyuan3D-2mv model uses all supplied angles.
+- **Two to four selected views:** Hunyuan3D-2mv uses front/left/back/right inputs.
+- **Extra photos:** upload up to 16 total without angle numbers. Local Strata
+  vision selects compatible views and explains every choice; at most four
+  selected photos condition the model. See [MORE_ANGLES.md](MORE_ANGLES.md).
 - **Photo colors:** project the supplied photos onto UVs; unseen regions stay neutral.
 - **Downloads:** FBX with external color PNGs in a Unity ZIP, Blender project and report.
 - **Local processing:** uploads, models, job history and generated assets stay on
@@ -58,7 +61,8 @@ generation are not verified.
 
 Python 3.10.22 is installed by the setup script into this project. A separate
 Python installation, Node.js, Docker, Codex and Strata are not required for the
-default web-app workflow. After installing Git/uv, reopen PowerShell so PATH
+labelled-photo preset workflow. Extra-photo recognition needs the matching Strata
+vision setup below and 12 GiB available RAM. After installing Git/uv, reopen PowerShell so PATH
 changes take effect.
 
 ## Install
@@ -112,7 +116,7 @@ For an isolated worktree, use `scripts/start_app.ps1 -Port 8766 -NoBrowser` and
 open http://127.0.0.1:8766. To reuse an already prepared environment read-only,
 set `LOCAL3D_PYTHON` to its Python executable and `LOCAL3D_ASSET_ROOT` to its
 project directory before launching. The latter supplies weights and demo images;
-the current worktree still needs its pinned source checkouts under `work/vendor/`.
+it also supplies the pinned source checkouts under `work/vendor/` read-only.
 Jobs, locks, exports and the queue remain in the current worktree. Run only one
 GPU generation across these independent apps at a time.
 
@@ -137,6 +141,10 @@ app's **Cancel generation** button when you only want to stop a job.
    image, then optionally add **left**, **back** and **right** views of the same
    subject. Supported files are JPEG, PNG and WebP, up to 12 MB and 20 megapixels
    each, with a minimum width/height of 64 pixels.
+   Drag unlabelled images into **Drop extra photos here** or choose **Browse
+   photos**. No angle entry is needed. The combined limit is 16 photos / 48 MiB.
+   Labelled views are trusted anchors; Strata vision can fill missing directions
+   or replace a clearly weaker anchor. Uncertain photos are skipped with reasons.
 3. Keep the subject's pose, framing, lighting and camera distance consistent
    across views. Include the whole subject and avoid other people/objects in
    frame. More angles can help constrain shape but do not guarantee likeness.
@@ -163,6 +171,9 @@ Advanced options allow one additional seed after geometric rejection, capped at
 two attempts total. Crashed/OOM inference is not restarted. For genuinely flat
 subjects, enable **My subject is intentionally flat** to disable the slab check.
 The automated checks cannot judge facial resemblance or overall visual quality.
+Review the **selected / submitted photos** panel. Only the chosen cardinal
+cutouts condition the shape model and supply its color bake. Unselected photos
+remain saved with an explanation; they are not fused into the mesh or texture.
 The coverage figure counts UV surface texels, rather than physical surface area
 or confidence in likeness. Unseen/rejected texels are neutral gray; there is no
 neural painting or inpainting. A failed photo bake preserves an untextured export
@@ -196,9 +207,10 @@ retopology. A reduced triangle count alone does not establish game readiness.
 
 ## Optional Strata planning
 
-Strata is an optional language-model runtime for choosing bounded generation
-settings from image metadata; it does not run Hunyuan3D or inspect the photos.
-The default preset is simpler and uses less host memory.
+The settings planner optionally uses Strata to choose settings from metadata.
+Photo recognition is separate: unlabelled extras automatically use Strata vision,
+including when the settings planner is **Automatic preset**. Labelled references
+alone need no Strata installation. Strata does not run Hunyuan3D.
 
 To enable it, first provide a compatible native Strata installation, model pack,
 tokenizer, and existing base configuration. Then prepare the project-owned config:
@@ -218,6 +230,29 @@ for arbitrary models. See
 [NATIVE_SETUP.md](NATIVE_SETUP.md) before adapting it to another installation.
 Earlier Strata runs nearly exhausted the tested host's RAM, so the preset is
 the recommended starting option.
+
+### Enable extra-photo recognition
+
+With the compatible Strata 0.1.41 engine, `strata-vision.exe` helper and existing
+Qwen Coder IQ1_M pack installed, prepare `work/strata-native.json` as above, then run:
+
+```powershell
+.\.venv\Scripts\python.exe -B scripts/setup_strata_vision.py --base-config .\work\strata-native.json
+```
+
+This downloads and verifies a pinned **907 MB** BF16 vision encoder and creates
+`work/strata-vision.json`. It preserves the base config and shared installation;
+it does not install or upgrade Strata. The encoder retains its upstream terms.
+`--cpu` encoding is available but has not been measured here.
+
+Recognition needs 12 GiB available RAM before loading, stops below 2 GiB and has
+a 900-second total deadline. It closes the engine and encoder before generation,
+then rechecks RAM/VRAM. Invalid or uncertain observations skip that photo; an
+engine failure stops without restarting inference. Missing vision config stops
+extra-photo jobs with a setup message. See [MORE_ANGLES.md](MORE_ANGLES.md).
+
+Follow [MANUAL_TEST.md](MANUAL_TEST.md) to test extra-photo selection and textured
+Unity export together in the prepared combined app.
 
 ## Troubleshooting
 
@@ -257,12 +292,15 @@ completed the HTTP queue in **177 seconds**, producing a **50,000-triangle** FBX
 at **1.8 meters** with **75.7% UV-texel color coverage**. A fresh Blender import
 from a relocated ZIP retained geometry, UVs and the correct local PNG. The GLB
 embedded matching color pixels, and the browser rendered the textured model.
-All **24 regression checks** passed, including protection against cross-view
+All **40 regression checks** passed, including selected extras and replacement
+anchors reaching the bake, and protection against cross-view
 color ghosting and excessive camera tilt. This is one measured example, not a
 timing or quality guarantee. Seams and feature-placement errors can remain.
 Host-specific paths, specifications and telemetry are kept in ignored local reports.
 
 - [WEB_APP.md](WEB_APP.md): app architecture, limits and validation details.
+- [MANUAL_TEST.md](MANUAL_TEST.md): combined extra-photo/color workflow to try.
+- [MORE_ANGLES.md](MORE_ANGLES.md): local Strata vision and selection audit.
 - [docs/PHOTO_BAKING.md](docs/PHOTO_BAKING.md): color fitting, packaging and checks.
 - [docs/TEXTURE_FEASIBILITY.md](docs/TEXTURE_FEASIBILITY.md): neural Paint research;
   those backends remain unimplemented.

@@ -3,26 +3,29 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import shutil
 
 import numpy as np
 import onnxruntime as ort
 from PIL import Image, ImageOps
+from app_views import candidates_for, image_metrics, select_candidates, select_hybrid, HYBRID_STRATEGY
 from runtime_paths import asset_root
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--job-dir', type=Path, required=True)
-    args = parser.parse_args()
-    job = json.loads((args.job_dir / 'job.json').read_text())
-    output = args.job_dir / 'prepared'
-    output.mkdir(exist_ok=False)
+def prepare_job(folder):
+    job = json.loads((folder / 'job.json').read_text(encoding='utf-8'))
+    output = folder / 'prepared'
+    (output / 'candidates').mkdir(parents=True, exist_ok=False)
     session = None
-    views = {}
-    for view in job['views']:
-        source = args.job_dir / 'uploads' / f'{view}.image'
+    records = []
+    for candidate in candidates_for(job):
+        if (folder / 'CANCEL').exists():
+            raise InterruptedError('Job cancelled during image preparation')
+        view = candidate['id']
+        source = folder / 'uploads' / f'{view}.image'
+        record = dict(candidate, original_sha256=hashlib.sha256(source.read_bytes()).hexdigest())
         with Image.open(source) as opened:
             image = ImageOps.exif_transpose(opened).convert('RGBA')
         image.thumbnail((2048, 2048), Image.Resampling.LANCZOS)
@@ -45,16 +48,47 @@ def main():
         alpha = alpha.point(lambda value: 0 if value < 16 else value)
         box = alpha.point(lambda value: 255 if value > 64 else 0).getbbox()
         if not box or (box[2] - box[0]) * (box[3] - box[1]) < 256:
-            raise ValueError(f'No usable foreground in {view}; use a clear photo or transparent PNG.')
+            records.append(dict(record, error='No usable foreground; use a clearer photo or transparent PNG'))
+            continue
         image.putalpha(alpha)
         image = ImageOps.expand(image.crop(box), border=16, fill=(0, 0, 0, 0))
-        path = output / f'{view}.png'
+        path = output / 'candidates' / f'{view}.png'
         image.save(path)
-        views[view] = {'sha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'size': list(image.size),
-                       'original_sha256': hashlib.sha256(source.read_bytes()).hexdigest()}
+        records.append(dict(record, sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+                            size=list(image.size), metrics=image_metrics(image)))
         print(f'Prepared {view}: {image.size}', flush=True)
+    (folder / 'prepared-records.json').write_text(json.dumps(records, indent=2), encoding='utf-8')
+    if job.get('view_strategy') == HYBRID_STRATEGY and any(c['id'] not in ('front', 'left', 'back', 'right') for c in records):
+        if next((r for r in records if r['id'] == 'front'), {}).get('error'):
+            finalize_job(folder, records, select_hybrid(records))  # retain audit before failing
+        return None  # independent, bounded vision stage finalizes the selected inputs
+    selection = select_hybrid(records) if job.get('view_strategy') == HYBRID_STRATEGY else select_candidates(records)
+    return finalize_job(folder, records, selection)
+
+
+def finalize_job(folder, records, selection):
+    output = folder / 'prepared'
+    (folder / 'view-selection.json').write_text(json.dumps(selection, indent=2), encoding='utf-8')
+    if 'front' not in selection['selected']:
+        raise ValueError('No usable front view after selection; supply a clear front image or a nearby alternate')
+    by_id = {record['id']: record for record in records}
+    views = {}
+    for direction, candidate_id in selection['selected'].items():
+        record = by_id[candidate_id]
+        shutil.copy2(output / 'candidates' / f'{candidate_id}.png', output / f'{direction}.png')
+        views[direction] = {key: record[key] for key in ('sha256', 'size', 'original_sha256')}
+        views[direction].update(candidate_id=candidate_id, direction=direction)
     (output / 'provenance.json').write_text(json.dumps({'views': views, 'local_processing': True,
-        'rgb_regenerated': False}, indent=2))
+        'rgb_regenerated': False, 'selection_strategy': selection['strategy']}, indent=2), encoding='utf-8')
+    print(f'{selection["submitted_count"]} submitted; {selection["selected_count"]} selected for conditioning', flush=True)
+    return selection
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--job-dir', type=Path, required=True)
+    args = parser.parse_args()
+    prepare_job(args.job_dir)
 
 
 if __name__ == '__main__':

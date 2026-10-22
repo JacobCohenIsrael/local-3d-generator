@@ -8,9 +8,9 @@ def project_python(root):
     return Path(os.environ.get('LOCAL3D_PYTHON', root / '.venv/Scripts/python.exe'))
 
 
-def asset_root(root):
+def asset_root(root=None):
     """Optional read-only model/reference store; runtime state stays in root."""
-    return Path(os.environ.get('LOCAL3D_ASSET_ROOT',root))
+    return Path(os.environ.get('LOCAL3D_ASSET_ROOT',root or Path(__file__).resolve().parents[1]))
 
 
 def blender_executable():

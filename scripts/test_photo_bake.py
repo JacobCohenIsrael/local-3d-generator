@@ -17,6 +17,39 @@ from test_web_app import request_data
 
 
 class PhotoBakeTests(unittest.TestCase):
+    def test_selected_extras_supply_bake_views_and_can_replace_front(self):
+        root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory(dir=root/'work') as directory:
+            folder = Path(directory)
+            prepared = folder/'prepared'
+            prepared.mkdir()
+            provenance = {'views':{}}
+            for view,candidate,color in [('front','extra-01',(0,255,0,255)),('back','extra-02',(0,0,255,255))]:
+                path = prepared/f'{view}.png'
+                Image.new('RGBA',(64,64),color).save(path)
+                provenance['views'][view] = {'candidate_id':candidate,'original_sha256':candidate+'-original',
+                    'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
+            (prepared/'provenance.json').write_text(json.dumps(provenance))
+            # Only front was labelled, but vision replaced it and filled back.
+            (folder/'job.json').write_text(json.dumps({'views':['front'],
+                'candidates':[{'id':key} for key in ('front','extra-01','extra-02')]}))
+            (folder/'view-selection.json').write_text(json.dumps({'strategy':'hybrid_vision_v1',
+                'selected':{'front':'extra-01','back':'extra-02'}}))
+            vertices = np.array([[-1,0,-1],[1,0,-1],[1,0,1],[-1,0,1]],np.float32)
+            faces = np.array([[0,1,2],[0,2,3]]*2)
+            uv = np.array([[[.05,.05],[.45,.05],[.45,.95]],[[.05,.05],[.45,.95],[.05,.95]],
+                [[.55,.05],[.95,.05],[.95,.95]],[[.55,.05],[.95,.95],[.55,.95]]],np.float32)
+            normals = np.array([[[0,-1,0]]*3]*2+[[[0,1,0]]*3]*2,np.float32)
+            np.savez(folder/'geometry.npz',vertices=vertices,faces=faces,uv=uv,normals=normals)
+            with contextlib.redirect_stdout(io.StringIO()):
+                report = bake(folder,folder/'geometry.npz',folder/'texture',64)
+            atlas = np.asarray(Image.open(folder/'texture/basecolor.png'))
+            self.assertEqual(report['views_used'],['front','back'])
+            self.assertEqual(report['views']['front']['candidate_id'],'extra-01')
+            self.assertEqual(report['views']['back']['candidate_id'],'extra-02')
+            self.assertTrue(np.allclose(atlas[32,16],[0,255,0],atol=2))
+            self.assertTrue(np.allclose(atlas[32,48],[0,0,255],atol=2))
+
     def test_small_silhouette_gain_does_not_tilt_cardinal_camera(self):
         alpha = np.zeros((64,64),np.float32)
         alpha[4:60,12:52] = 1
@@ -81,7 +114,7 @@ class PhotoBakeTests(unittest.TestCase):
         for settings in ({'texture':'execute-something'},{'texture_size':8192},{'texture_size':True}):
             with self.subTest(settings=settings), self.assertRaises(ValueError):
                 validate_request(dict(request_data(),settings=settings))
-        _,settings,_ = validate_request(dict(request_data(),settings={'texture':'photo_basecolor','texture_size':512}))
+        _,settings,_,_ = validate_request(dict(request_data(),settings={'texture':'photo_basecolor','texture_size':512}))
         self.assertEqual(settings['texture'],'photo_basecolor')
 
     def test_back_facing_surface_stays_neutral_not_inpainted(self):

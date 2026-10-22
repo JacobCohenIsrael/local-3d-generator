@@ -2,6 +2,14 @@
 
 ## Objective and current scope
 
+The owner now authorizes coordination between the texture and extra-photo
+branches, resolving conflicts, committing/pushing their combined result to main,
+and updating the primary local app for a manual test. This supersedes the earlier
+isolation/no-main-change limits for this integration. Preserve existing jobs,
+private runtime configuration and model caches; do not overwrite shared Strata
+configuration. Extra-photo selection and photo color baking must use the same
+selected canonical cutouts and retain the selection audit in the Unity ZIP.
+
 The owner now authorizes implementation of photo-based base-color baking,
 textured FBX export and an end-to-end demo in this worktree. This supersedes
 the previous research-only scope for photo textures. Neural paint, training
