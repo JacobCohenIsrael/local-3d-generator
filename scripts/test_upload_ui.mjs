@@ -1,16 +1,18 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 const nodes=new Map();
-function node(tag='div'){return {tagName:tag.toUpperCase(),children:[],dataset:{},classList:{add(){},remove(){}},value:'',hidden:false,disabled:false,append(...children){this.children.push(...children);},replaceChildren(...children){this.children=children;},setAttribute(){},focus(){},scrollIntoView(){},querySelector(){return node();}};}
+function node(tag='div'){return {tagName:tag.toUpperCase(),children:[],dataset:{},classList:{add(){},remove(){}},value:'',hidden:false,disabled:false,get options(){return this.children;},append(...children){for(const child of children)child.parent=this;this.children.push(...children);},remove(){this.parent.children.splice(this.parent.children.indexOf(this),1);},replaceChildren(...children){this.children=[];this.append(...children);},setAttribute(){},focus(){},scrollIntoView(){},querySelector(){return node();}};}
 const get=id=>{if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);};
 const document={getElementById:get,createElement:node,createTextNode:text=>({textContent:text}),querySelector:()=>({content:'test-token'})};
-for(const [id,value] of Object.entries({name:'Drop test',quality:'balanced',background:'keep','texture-mode':'photo_basecolor','texture-fill':'nearest_surface',planner:'preset',attempts:'1',triangles:'50000',height:'1.8'}))get(id).value=value;
+for(const [id,value] of Object.entries({name:'Drop test',quality:'balanced',background:'keep','texture-mode':'photo_basecolor','texture-size':'1024','texture-fill':'nearest_surface',planner:'preset',attempts:'1',triangles:'50000',height:'1.8'}))get(id).value=value;
 let submitted;
-const fetch=async (url,options)=>{if(options){submitted=JSON.parse(options.body);return {ok:true,json:async()=>({id:'test'})};}return {ok:true,json:async()=>[]};};
-class FileReader{readAsDataURL(){this.result='data:image/png;base64,TEST';this.onload();}}
+let history=[],poll,fetchUpload;
+const fetch=async (url,options)=>{if(options?.method==='POST'){submitted=JSON.parse(options.body);return {ok:true,json:async()=>({id:'test'})};}if(url==='/api/jobs')return {ok:true,json:async()=>history};return fetchUpload(url,options);};
+class FileReader{async readAsDataURL(file){this.result=`data:${file.type};base64,${file.arrayBuffer?Buffer.from(await file.arrayBuffer()).toString('base64'):'TEST'}`;this.onload();}}
 const code=await readFile(new URL('../web/app.js',import.meta.url),'utf8');
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
-await new AsyncFunction('document','URL','fetch','FileReader','setInterval','setTimeout',code)(document,{createObjectURL:()=> 'blob:test',revokeObjectURL(){}},fetch,FileReader,()=>{},()=>{});
+let urlNumber=0;const liveURLs=new Set();
+await new AsyncFunction('document','URL','fetch','FileReader','setInterval','setTimeout','window',code)(document,{createObjectURL:()=>{const url=`blob:test-${++urlNumber}`;liveURLs.add(url);return url;},revokeObjectURL(url){liveURLs.delete(url);}},fetch,FileReader,callback=>{poll=callback;},()=>{},{scrollTo(){}});
 const file=name=>({name,size:1024,type:'image/png'});
 let prevented=0;
 get('slot-front').ondrop({preventDefault(){prevented++;},dataTransfer:{files:[file('front.png')]}});
@@ -33,4 +35,69 @@ assert.equal(get('extra-list').children.length,1);
 get('extra-drop').ondrop({preventDefault(){},dataTransfer:{files:[{name:'bad.txt',size:1,type:'text/plain'}]}});
 assert.match(get('form-error').textContent,/JPEG/);
 assert.equal(get('extra-list').children.length,1);
-console.log('PASS: multi-file drop, no angle fields, angle-free submit, remove, invalid type');
+const savedSettings={quality:'detailed',background:'person',texture:'none',texture_size:512,texture_fill:'neutral',planner:'strata',max_attempts:1,triangles:65000,height:2.35,allow_flat:true};
+const original=new Uint8Array([1,2,3,4,5]);
+const a={id:'a'.repeat(32),name:'Saved asset A',state:'cancelled',created_at:1,downloads:[],job:{name:'Saved asset A',settings:savedSettings,views:['front','right'],candidates:[{id:'front',name:'front',anchor:'front'},{id:'right',name:'right',anchor:'right'},{id:'extra-01',name:'Unused rear.webp',anchor:null},{id:'extra-02',name:'Other angle.jpg',anchor:null}]}};
+const b={id:'b'.repeat(32),name:'Legacy asset B',state:'failed',created_at:2,downloads:[],job:{name:'Legacy asset B',settings:{quality:'balanced',background:'keep'},views:['front','left']}};
+history=[a,b];
+const requested=[];
+fetchUpload=async url=>{requested.push(url);const type=url.endsWith('extra-01')?'image/webp':url.endsWith('extra-02')?'image/jpeg':'image/png';return {ok:true,blob:async()=>new Blob([original],{type})};};
+await poll(); // The new submission remains selected until an explicit history choice.
+await get('history').children[0].onclick();
+assert.equal(get('name').value,a.name);
+assert.equal(get('candidate-count').textContent,'4 / 16 images');
+assert.equal(get('extra-list').children.length,2);
+assert.equal(get('extra-list').children[0].children[1].children[0].textContent,'Unused rear.webp');
+assert.equal(get('quality').value,'detailed');
+assert.equal(get('background').value,'person');
+assert.equal(get('texture-mode').value,'none');
+assert.equal(get('texture-fill').value,'neutral');
+assert.equal(get('texture-size').value,'512');
+assert.equal(get('triangles').value,'65000');
+assert.equal(get('height').value,'2.35');
+assert.equal(get('allow-flat').checked,true);
+assert.equal(liveURLs.size,4);
+assert.equal(requested.length,4);
+assert.ok(requested.every(url=>url.includes('/uploads/')));
+get('name').value='My edited copy';
+await poll();assert.equal(get('name').value,'My edited copy','Polling must preserve draft edits');
+await get('create-form').onsubmit({preventDefault(){}});
+assert.equal(submitted.name,'My edited copy');
+assert.deepEqual(submitted.settings,savedSettings);
+assert.deepEqual(Object.keys(submitted.views),['front','right']);
+assert.equal(submitted.views.front,Buffer.from(original).toString('base64'));
+assert.deepEqual(submitted.extra_views.map(item=>item.name),['Unused rear.webp','Other angle.jpg']);
+assert.ok(submitted.extra_views.every(item=>item.image===submitted.views.front));
+await get('history').children[0].onclick();assert.equal(liveURLs.size,4,'Repeated selection revokes replaced URLs');
+await get('history').children[1].onclick();
+assert.equal(get('candidate-count').textContent,'2 / 16 images');
+assert.equal(get('extra-list').children.length,0);
+assert.equal(get('allow-flat').checked,false);
+assert.equal(get('texture-size').value,'1024');
+assert.equal(get('texture-fill').value,'neutral');
+assert.equal(get('texture-mode').value,'none','Old jobs without texture settings remain untextured');
+assert.equal(get('planner').value,'preset');
+assert.equal(liveURLs.size,2);
+// A failed image load must leave the complete previous draft intact.
+fetchUpload=async()=>({ok:false});
+await get('history').children[0].onclick();
+assert.equal(get('name').value,b.name);
+assert.equal(get('candidate-count').textContent,'2 / 16 images');
+assert.match(get('form-error').textContent,/unavailable/);
+assert.equal(get('generate').disabled,false);
+// A slow previous selection must never replace a newer selection's references.
+let release;
+const gate=new Promise(resolve=>{release=resolve;});
+fetchUpload=async url=>{if(url.includes(a.id))await gate;return {ok:true,blob:async()=>new Blob([original],{type:'image/png'})};};
+const pending=get('history').children[0].onclick();
+assert.equal(get('generate').disabled,true);
+assert.equal(get('create-form').inert,true);
+submitted=undefined;await get('create-form').onsubmit({preventDefault(){}});assert.equal(submitted,undefined);
+await get('history').children[1].onclick();release();await pending;
+assert.equal(get('name').value,b.name);assert.equal(liveURLs.size,2);
+assert.equal(get('create-form').inert,false);
+// Leaving history cancels a pending restore even if its fetch ignores abort.
+const abandoned=get('history').children[0].onclick();get('new-project').onclick();await abandoned;
+assert.equal(get('name').value,b.name);assert.equal(get('reuse-status').hidden,true);
+assert.equal(liveURLs.size,2);
+console.log('PASS: upload/submit, original-byte history replay, all settings, legacy defaults, polling, failed loads, stale selections and URL cleanup');

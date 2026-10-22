@@ -156,7 +156,7 @@ app's **Cancel generation** button when you only want to stop a job.
    Use background removal for ordinary photos with scenery behind the subject.
 6. Set the desired **height in meters** and **triangle budget**. Leave **Surface
    color > Bake colors from your photos** selected for color, or choose
-   **Untextured mesh**. The app bakes a 1024-pixel color atlas on CPU without
+   **Untextured mesh**. The app defaults to a 1024-pixel color atlas on CPU without
    additional neural weights. Camera fitting is approximate; poor alignment
    can cause seams or misplaced details.
    Under **Unseen surface colors**, keep neutral gray for a diagnostic view or
@@ -169,6 +169,19 @@ app's **Cancel generation** button when you only want to stop a job.
    projected colors. Review the photo coverage percentage. Download
    **FBX + colors ZIP** for Unity, or the self-contained **Blender** file.
    **Color PNG**, **Coverage mask**, **FBX only** and **Report** are also available.
+
+To reuse a previous creation, select it in **Recent assets**. Section **01**
+restores the original labelled images and every extra photo in its saved order,
+including photos that were not selected for generation. Section **02** restores
+the asset name, quality, background, color options, scale, triangle budget and
+advanced options. Adjust them if needed, then click **Generate asset** to create
+a separate history item. The original asset stays unchanged. Automatic progress
+refreshes preserve your edits. If an original upload is missing, the app reports
+the problem and leaves your previous inputs unchanged.
+
+Advanced options include a 512- or 1024-pixel color atlas. Older history entries
+use the defaults for settings they predate. Reusing inputs/settings does not
+guarantee an identical mesh: generation and view selection can vary between runs.
 
 The default **Automatic preset** planner works without a language model.
 Advanced options allow one additional seed after geometric rejection, capped at

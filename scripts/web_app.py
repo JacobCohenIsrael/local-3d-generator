@@ -245,7 +245,7 @@ def handler(workshop, port):
                 if demo.is_file():
                     return self.send(200, demo.read_bytes(), 'image/png')
                 return self.send(404, {'error': 'Example images are not installed'})
-            match = re.fullmatch(r'/api/jobs/([a-f0-9]{32})/(files|views|candidates)/([a-z][a-z0-9-]{0,31})', path)
+            match = re.fullmatch(r'/api/jobs/([a-f0-9]{32})/(files|views|candidates|uploads)/([a-z][a-z0-9-]{0,31})', path)
             if match:
                 job_id, category, key = match.groups()
                 folder = workshop.jobs / job_id
@@ -263,6 +263,21 @@ def handler(workshop, port):
                     file = folder / 'prepared/candidates' / f'{key}.png'
                     if file.is_file():
                         return self.send(200, file.read_bytes(), 'image/png')
+                elif category == 'uploads' and (key in VIEWS or re.fullmatch(r'extra-\d{2}', key)):
+                    # Replay uses original bytes, including unselected photos and alpha.
+                    # Older jobs predate candidates and record only labelled views.
+                    try:
+                        job = json.loads((folder / 'job.json').read_text())
+                        candidates = job.get('candidates')
+                        keys = [item['id'] for item in candidates] if candidates is not None else job['views']
+                        file = folder / 'uploads' / f'{key}.image'
+                        if key in keys and file.is_file() and file.stat().st_size <= MAX_FILE:
+                            with Image.open(file) as image:
+                                mime = {'PNG': 'image/png', 'JPEG': 'image/jpeg', 'WEBP': 'image/webp'}.get(image.format)
+                            if mime:
+                                return self.send(200, file.read_bytes(), mime)
+                    except (OSError, ValueError, KeyError, TypeError, Image.DecompressionBombError):
+                        pass
                 return self.send(404, {'error': 'File not available'})
             relative = 'index.html' if path == '/' else path.lstrip('/')
             file = (ROOT / 'web' / relative).resolve()

@@ -2,6 +2,12 @@
 
 ## Objective and current scope
 
+The owner requests history reuse: selecting a previous asset must restore its
+original reference uploads and generation settings into sections 01 and 02.
+Preserve old results; resubmission creates a separate job. Do not restore from
+processed cutouts or discard unselected extras. Progress polling must preserve
+draft edits, and incomplete or stale restores must not mix inputs across jobs.
+
 The owner requests improved color baking for small pixel-art references. Broader
 bounded camera fitting and source-resolution-independent visibility are allowed.
 Optional nearest-surface color extension must be labelled as estimated, retain

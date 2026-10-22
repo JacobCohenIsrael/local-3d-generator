@@ -1,35 +1,35 @@
-# Current checkpoint: improved color baking for small references
+# Current checkpoint: reuse asset history
 
 ## Completed
 
-- Combined extra-photo selection and textured FBX remain integrated. Up to 16
-  candidates are audited; at most four selected cardinal cutouts supply shape
-  and color. Strata vision and shape inference run sequentially with bounds.
-- Color camera search now spans 0 through 60 degrees in ten-degree steps, while
-  retaining the level-camera prior that prevented doubled facial details.
-- Visibility uses a 512-pixel geometry buffer independently of source size;
-  color still samples original image pixels. Tiny sloped surfaces are retained
-  while hidden geometry remains rejected.
-- Optional nearest-surface color extension reduces neutral patches. It preserves
-  observed colors and records an inferred mask/fraction separate from photo
-  coverage. Neutral gray remains the default. No neural paint or new weights.
-- A color-only comparison on the same 25,000-triangle mesh improved photo
-  coverage from 30.0% to 46.4%. The remaining 53.6% can use explicitly estimated
-  extension. Raw/prepared geometry hashes and exported bounds/counts are unchanged.
-- Exported/reopened textured FBX and relocated ZIP passed UV/image hash checks.
-  GLB embedded pixels matched; ZIP includes observed/inferred masks and selection
-  audit. Owned heavy stages stopped; originals and prior results remain saved.
-- Character demo regression retained 75.7% coverage and its level front camera.
-  All 44 Python tests and the JavaScript drop/settings test passed, including
-  visibility/occlusion, elevated fitting and honest inferred-mask packaging.
-- The app exposes Unseen surface colors, separate observed/estimated percentages,
-  mask downloads and a color-rebake label. A separate improved result is prepared
-  for manual comparison in the primary app; no new shape inference was run.
+- Selecting a history item restores sections 01 and 02: original labelled
+  uploads, all extra photos in saved order, name and every saved generation
+  setting. The latest asset is restored once on page load. Polling preserves
+  subsequent edits; generating creates a separate job without changing history.
+- A bounded upload route returns original JPEG/PNG/WebP bytes with their correct
+  MIME type. It exposes only registered images, supports older labelled-view
+  jobs, and does not use prepared cutouts or discard unselected extras.
+- Reference loading is staged before replacing the form. Missing originals
+  preserve the previous inputs. Submission is blocked while loading, switching
+  history cancels stale loads, and replaced preview URLs are released.
+- Advanced options expose the saved color-atlas size. History can restore custom
+  triangle budgets and fractional heights accepted by the API. Old jobs use
+  historical defaults for absent settings, including untextured output.
+- All 44 Python tests and the expanded JavaScript interaction test pass.
+  Checks cover original-byte replay, JPEG/WebP and legacy HTTP retrieval,
+  boundaries, all settings, polling, missing images and stale selection races.
+  Browser checks verified restoring older demos and editing advanced settings.
+- Existing extra-photo selection, photo colors and textured FBX/ZIP export
+  remain integrated. The earlier color-only comparison retained its geometry
+  and improved observed UV-texel coverage from 30.0% to 46.4%; optional estimated
+  fill is reported separately. No shape inference is needed for history reuse.
 
 ## Next action / limits
 
-- Owner reviews the improved color result and may select Extend nearby colors
-  for future sparse inputs. Use MANUAL_TEST.md for the Unity import workflow.
+- Owner selects a previous asset, reviews restored inputs/settings and generates
+  a separate variation when ready. See README.md and MANUAL_TEST.md.
+- Input/settings reuse does not promise an identical mesh: random seeds and
+  optional Strata selection/planning can vary between generations.
 - Estimated colors do not recover unseen detail. Tiny sprites, perspective,
   shadows and approximate camera fits still limit quality; seams can remain.
 - Coverage measures UV texels, not likeness or physical area. Neutral/coverage/

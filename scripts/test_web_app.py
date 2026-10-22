@@ -142,6 +142,31 @@ class WebTests(unittest.TestCase):
                 self.assertIn('attachment',response.headers['Content-Disposition'])
             with urlopen(url+f'/api/jobs/{job_id}/candidates/extra-01') as response:
                 self.assertEqual(response.headers['Content-Type'],'image/png')
+            for key in ('front', 'extra-01'):
+                with urlopen(url+f'/api/jobs/{job_id}/uploads/{key}') as response:
+                    self.assertEqual(response.headers['Content-Type'], 'image/png')
+                    self.assertEqual(response.read(), (folder / 'uploads' / f'{key}.image').read_bytes())
+            # A file alone is insufficient: replay only exposes registered uploads.
+            (folder / 'uploads/extra-99.image').write_bytes((folder / 'uploads/front.image').read_bytes())
+            rejected(f'/api/jobs/{job_id}/uploads/extra-99', {}, 404)
+            rejected(f'/api/jobs/{job_id}/uploads/../../job.json', {}, 404)
+            rejected(f'/api/jobs/{job_id}/uploads/front', {'Host':'evil.example'}, 403)
+            (folder / 'uploads/extra-01.image').unlink()
+            rejected(f'/api/jobs/{job_id}/uploads/extra-01', {}, 404)
+            for fmt, mime in [('JPEG', 'image/jpeg'), ('WEBP', 'image/webp')]:
+                with self.subTest(format=fmt):
+                    image = io.BytesIO()
+                    Image.new('RGB', (64, 64), (25, 80, 130)).save(image, format=fmt)
+                    data = request_data()
+                    data['views']['front'] = base64.b64encode(image.getvalue()).decode()
+                    replay_id = self.app.create(data)
+                    metadata = self.app.jobs / replay_id / 'job.json'
+                    legacy = json.loads(metadata.read_text())
+                    del legacy['candidates']
+                    metadata.write_text(json.dumps(legacy))
+                    with urlopen(url+f'/api/jobs/{replay_id}/uploads/front') as response:
+                        self.assertEqual(response.headers['Content-Type'], mime)
+                        self.assertEqual(response.read(), image.getvalue())
             rejected(f'/api/jobs/{job_id}/candidates/extra-99',{},404)
             rejected(f'/api/jobs/{job_id}/candidates/../../job.json',{},404)
         finally:

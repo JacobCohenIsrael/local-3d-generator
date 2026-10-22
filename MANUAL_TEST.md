@@ -30,6 +30,11 @@ Its 76.7% UV-texel color coverage includes an automatically selected extra photo
 
 ## Review
 
+- Choose a previous asset in **Recent assets**. Confirm sections **01** and **02**
+  restore its original labelled photos, all extras and settings, including
+  advanced options. Edit the name and wait for a progress refresh: the edit
+  should remain. **Generate asset** submits a new job without changing the old
+  result; there is no need to generate just to check that restoration works.
 - Expand **selected / submitted photos**. Each upload should have a selected or
   skipped reason. Confirm that selected directions match your subject. At most
   four photos condition Hunyuan and supply color. Extras improve input selection;
