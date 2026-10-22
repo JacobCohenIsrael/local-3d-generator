@@ -2,16 +2,17 @@
 
 Turn reference images into a static 3D mesh on a Windows PC, then download an
 FBX to import into Unity. The local web app handles background removal,
-generation, geometry checks, Blender export and a rotatable preview. Submitted
+generation, geometry checks, photo color baking, Blender export and a rotatable preview. Submitted
 jobs run without Codex or an open browser tab.
 
 - **One image:** Hunyuan3D-2.1.
 - **Two to four views:** the separate Hunyuan3D-2mv model uses all supplied angles.
-- **Downloads:** FBX, Unity ZIP, Blender project and generation report.
+- **Photo colors:** project the supplied photos onto UVs; unseen regions stay neutral.
+- **Downloads:** FBX with external color PNGs in a Unity ZIP, Blender project and report.
 - **Local processing:** uploads, models, job history and generated assets stay on
   your machine. Installation downloads dependencies and model files once.
 
-Exports are untextured, unrigged static meshes. This is generative reconstruction,
+Exports are unrigged static meshes with optional photo base color. This is generative reconstruction,
 not a measured 3D scan. Inspect resemblance and geometry before using an asset.
 
 ## Requirements
@@ -107,6 +108,14 @@ no Windows startup entry is installed. Finished jobs remain in the history.
 Queued jobs resume when the app starts, while a job interrupted during execution
 is marked interrupted rather than automatically restarted.
 
+For an isolated worktree, use `scripts/start_app.ps1 -Port 8766 -NoBrowser` and
+open http://127.0.0.1:8766. To reuse an already prepared environment read-only,
+set `LOCAL3D_PYTHON` to its Python executable and `LOCAL3D_ASSET_ROOT` to its
+project directory before launching. The latter supplies weights and demo images;
+the current worktree still needs its pinned source checkouts under `work/vendor/`.
+Jobs, locks, exports and the queue remain in the current worktree. Run only one
+GPU generation across these independent apps at a time.
+
 To run with visible logs and an easy shutdown, start the server in a terminal
 instead of using the launcher:
 
@@ -136,32 +145,51 @@ app's **Cancel generation** button when you only want to stop a job.
 5. Choose background preparation: **objects**, **people**, or **already
    isolated / keep background**. Transparent PNGs retain their alpha mask.
    Use background removal for ordinary photos with scenery behind the subject.
-6. Set the desired **height in meters** and **triangle budget**.
+6. Set the desired **height in meters** and **triangle budget**. Leave **Surface
+   color > Bake colors from your photos** selected for color, or choose
+   **Untextured mesh**. The app bakes a 1024-pixel color atlas on CPU without
+   additional neural weights. Camera fitting is approximate; poor alignment
+   can cause seams or misplaced details.
 7. Click **Generate asset**. Watch progress and prepared cutouts. Jobs are queued
    and run one at a time. Use **Cancel generation** to stop a queued/running job.
 8. Inspect the final mesh: drag to rotate, scroll to zoom and use **Wireframe**
-   to inspect density. Download **FBX**, **Unity ZIP**, **Blender**, or **Report**.
+   to inspect density. Use **Hide colors** to compare the geometry against its
+   projected colors. Review the photo coverage percentage. Download
+   **FBX + colors ZIP** for Unity, or the self-contained **Blender** file.
+   **Color PNG**, **Coverage mask**, **FBX only** and **Report** are also available.
 
 The default **Automatic preset** planner works without a language model.
 Advanced options allow one additional seed after geometric rejection, capped at
 two attempts total. Crashed/OOM inference is not restarted. For genuinely flat
 subjects, enable **My subject is intentionally flat** to disable the slab check.
 The automated checks cannot judge facial resemblance or overall visual quality.
+The coverage figure counts UV surface texels, rather than physical surface area
+or confidence in likeness. Unseen/rejected texels are neutral gray; there is no
+neural painting or inpainting. A failed photo bake preserves an untextured export
+with a visible warning. Cancellation/deadlines stop the job rather than continuing
+to export. See [photo baking](docs/PHOTO_BAKING.md) for the limits and file contract.
 
 ## Import into Unity
 
-1. Download the FBX, or extract `asset.fbx` from the Unity ZIP.
-2. Drag `asset.fbx` into your Unity project's **Assets** folder.
-3. Drag the imported model into a scene, assign a material appropriate for your
-   render pipeline, and inspect its scale and orientation.
-4. Add any required colliders, LODs or other game components in Unity.
+1. Download **FBX + colors ZIP** and extract it. Keep `textures/` beside
+   `asset.fbx`; downloading the FBX alone does not include its PNGs.
+2. Copy the extracted folder into your Unity project's **Assets** folder.
+3. Create a material for your render pipeline. Assign `textures/basecolor.png`
+   to **Base Map / Albedo** with **sRGB** enabled, metallic **0** and smoothness
+   **0.2** (roughness **0.8**). Assign the material to the model and inspect it
+   in a scene. These constants are assumptions, not measured surface properties.
+4. Keep `coverage.png` and `uvmask.png` as diagnostics. Do **not** assign the
+   coverage mask to opacity/alpha. Add colliders, LODs or other components as needed.
 
 The exporter centers the model horizontally, grounds its base, sets the requested
 height in meters, reduces triangles if above budget and exports with **-Z forward,
 Y up** and unit metadata. The ZIP includes an import note and generation/export
-reports; it is an ordinary ZIP, not a `.unitypackage` file.
+reports, color PNGs and a relative-path material manifest; it is an ordinary ZIP,
+not a `.unitypackage` file. The GLB preview embeds its color image, and the separate
+Blender download packs it into the `.blend` file.
 
-Blender automatically reimports the FBX and checks triangle counts and bounds.
+Blender automatically reimports the FBX and checks triangle counts, bounds,
+UV presence and the resolved color-image hash.
 **An actual Unity Editor import has not yet been verified.** These exports do
 not include a skeleton, animations, generated PBR textures or animation-ready
 retopology. A reduced triangle count alone does not establish game readiness.
@@ -224,18 +252,20 @@ included in this public repository.
 
 ## Verification and project notes
 
-Texture support is being investigated separately; the app still exports
-untextured meshes. See [texture feasibility and implementation plan](docs/TEXTURE_FEASIBILITY.md)
-for native Windows prerequisites, memory tradeoffs and the verified synthetic
-CPU-bake/FBX material-transport probe.
-
-A real three-view example completed automatic foreground removal and produced
-a **50,000-triangle FBX** at 1.8 meters.
-The FBX reopened with matching geometry/scale and the browser rendered the mesh.
-This is one validated example, not a timing or quality guarantee for other inputs.
+Photo base-color baking is implemented. The fresh official front/left/back demo
+completed the HTTP queue in **177 seconds**, producing a **50,000-triangle** FBX
+at **1.8 meters** with **75.7% UV-texel color coverage**. A fresh Blender import
+from a relocated ZIP retained geometry, UVs and the correct local PNG. The GLB
+embedded matching color pixels, and the browser rendered the textured model.
+All **24 regression checks** passed, including protection against cross-view
+color ghosting and excessive camera tilt. This is one measured example, not a
+timing or quality guarantee. Seams and feature-placement errors can remain.
 Host-specific paths, specifications and telemetry are kept in ignored local reports.
 
 - [WEB_APP.md](WEB_APP.md): app architecture, limits and validation details.
+- [docs/PHOTO_BAKING.md](docs/PHOTO_BAKING.md): color fitting, packaging and checks.
+- [docs/TEXTURE_FEASIBILITY.md](docs/TEXTURE_FEASIBILITY.md): neural Paint research;
+  those backends remain unimplemented.
 - [NATIVE_SETUP.md](NATIVE_SETUP.md): native environment and optional Strata setup.
 - [FIRST_RUN.md](FIRST_RUN.md): original Strata/Hunyuan3D/Blender CLI experiment.
 - [NEXT_STEPS.md](NEXT_STEPS.md): current project checkpoint.

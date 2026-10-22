@@ -2,10 +2,11 @@
 
 ## Objective and current scope
 
-This worktree's owner-requested scope is texture feasibility investigation:
-source/dependency/resource checks, lightweight synthetic material/export probes,
-and an evidence-backed plan. This does not authorize a large texture-generation
-run or changes to the primary project's environment. Keep machine-specific
+The owner now authorizes implementation of photo-based base-color baking,
+textured FBX export and an end-to-end demo in this worktree. This supersedes
+the previous research-only scope for photo textures. Neural paint, training
+and rigging remain excluded. Keep the primary project's runtime unchanged;
+existing dependencies/models may be reused read-only. Keep machine-specific
 evidence in ignored work/ files and public documentation portable.
 
 Owner steering on 22 October 2026 expands the scope to a local web app with
@@ -14,7 +15,8 @@ The app may prepare cutouts and run one generation plus at most one additional
 seed after geometric rejection, without Codex intervention. Preserve each
 attempt. Do not retry crashes/OOM or run unbounded loops. This authorization
 supersedes the first-milestone UI/batch/game-export exclusions below for this
-specific app. Texture generation, training and rigging remain out of scope.
+specific app. Neural texture generation, training and rigging remain out of scope;
+photo base-color baking is covered by the later authorization above.
 The app defaults to bounded presets; Strata is an optional advanced planner
 because earlier Strata runs approached physical RAM exhaustion.
 

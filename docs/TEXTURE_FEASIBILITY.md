@@ -1,5 +1,14 @@
 # Texture support: feasibility and implementation plan
 
+## Implementation status
+
+The owner subsequently authorized photo base-color baking and textured FBX
+implementation in this worktree. That path is now implemented; see
+[PHOTO_BAKING.md](PHOTO_BAKING.md) for behavior, limits and verification.
+The research below records the earlier audit and remains relevant to neural
+Paint options, which are still unimplemented. No neural texture weights or new
+dependencies were installed for photo baking. Unity Editor import remains untested.
+
 ## Recommendation
 
 Texture support is feasible, but the current shape pipeline cannot simply enable
@@ -22,9 +31,9 @@ Recommended order:
    configuration exceeds the target GPU's memory; an offloaded implementation
    needs measurement before making a support claim.
 
-This fork is a feasibility investigation. It does **not** enable textures in the
-app, install a texture toolchain, download texture weights, or claim a successful
-neural paint run. No Unity Editor material import was performed.
+At the time of this audit, the fork was a feasibility investigation and did not
+enable textures in the app. The later photo implementation above does not claim
+a successful neural Paint run or Unity Editor material import.
 
 ## Options and evidence
 

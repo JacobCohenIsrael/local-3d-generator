@@ -20,6 +20,7 @@ import uuid
 from PIL import Image
 from filelock import FileLock
 from native_process import OwnedProcess
+from runtime_paths import project_python, asset_root
 
 ROOT = Path(__file__).resolve().parents[1]
 VIEWS = ('front', 'left', 'back', 'right')
@@ -30,7 +31,10 @@ ASSETS = {'fbx': ('asset/asset.fbx', 'application/octet-stream'),
           'blend': ('asset/asset.blend', 'application/octet-stream'),
           'preview': ('asset/preview.png', 'image/png'),
           'package': ('asset/unity-package.zip', 'application/zip'),
-          'report': ('report.json', 'application/json')}
+          'report': ('report.json', 'application/json'),
+          'color': ('asset/textures/basecolor.png','image/png'),
+          'coverage': ('asset/textures/coverage.png','image/png'),
+          'material': ('asset/material-manifest.json','application/json')}
 
 
 def validate_request(data):
@@ -45,11 +49,14 @@ def validate_request(data):
     settings = {'quality': settings.get('quality', 'balanced'), 'background': settings.get('background', 'object'),
         'planner': settings.get('planner', 'preset'), 'max_attempts': settings.get('max_attempts', 2),
         'triangles': settings.get('triangles', 50000), 'height': settings.get('height', 1.8),
-        'allow_flat': settings.get('allow_flat', False)}
+        'allow_flat': settings.get('allow_flat', False),
+        'texture': settings.get('texture','none'), 'texture_size':settings.get('texture_size',1024)}
     for key, values in {'quality': ('balanced', 'detailed'), 'background': ('object', 'person', 'keep'),
-                        'planner': ('preset', 'strata')}.items():
+                        'planner': ('preset', 'strata'), 'texture':('none','photo_basecolor')}.items():
         if settings[key] not in values:
             raise ValueError(f'Invalid {key}')
+    if type(settings['texture_size']) is not int or settings['texture_size'] not in (512,1024):
+        raise ValueError('Invalid texture size')
     for key, low, high in (('max_attempts', 1, 2), ('triangles', 5000, 200000)):
         if type(settings[key]) is not int or not low <= settings[key] <= high:
             raise ValueError(f'Invalid {key}')
@@ -147,7 +154,7 @@ class Workshop:
             job_id = row[0]
             folder = self.jobs / job_id
             try:
-                owned = OwnedProcess([str(ROOT / '.venv/Scripts/python.exe'), '-B',
+                owned = OwnedProcess([str(project_python(ROOT)), '-B',
                     str(ROOT / 'scripts/app_pipeline.py'), '--job-dir', str(folder)],
                     folder / 'pipeline.log', cwd=str(ROOT))
                 try:
@@ -185,7 +192,8 @@ def handler(workshop, port):
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Referrer-Policy', 'no-referrer')
-            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'")
+            # Three.js fetches embedded GLB image blobs via ImageBitmapLoader.
+            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob:; object-src 'none'; frame-ancestors 'none'")
             if filename:
                 self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
             self.end_headers()
@@ -201,11 +209,11 @@ def handler(workshop, port):
             if path == '/api/jobs':
                 return self.send(200, workshop.list())
             if path == '/api/health':
-                return self.send(200, {'ready': True, 'mode': 'local', 'version': 1,
-                    'multiview_ready': (ROOT / 'models/hunyuan3d-2mv/hunyuan3d-dit-v2-mv/model.fp16.safetensors').is_file(),
-                    'single_view_ready': (ROOT / 'models/hunyuan3d-2.1/hunyuan3d-dit-v2-1/model.fp16.ckpt').is_file()})
+                return self.send(200, {'ready': True, 'mode': 'local', 'version': 2,'photo_baking':True,
+                    'multiview_ready': (asset_root(ROOT) / 'models/hunyuan3d-2mv/hunyuan3d-dit-v2-mv/model.fp16.safetensors').is_file(),
+                    'single_view_ready': (asset_root(ROOT) / 'models/hunyuan3d-2.1/hunyuan3d-dit-v2-1/model.fp16.ckpt').is_file()})
             if path in ('/api/demo/front', '/api/demo/left', '/api/demo/back'):
-                demo = ROOT / 'work/vendor/Hunyuan3D-2/assets/example_mv_images/1' / (path.rsplit('/', 1)[1] + '.png')
+                demo = asset_root(ROOT) / 'work/vendor/Hunyuan3D-2/assets/example_mv_images/1' / (path.rsplit('/', 1)[1] + '.png')
                 if demo.is_file():
                     return self.send(200, demo.read_bytes(), 'image/png')
                 return self.send(404, {'error': 'Example images are not installed'})

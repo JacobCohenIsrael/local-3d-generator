@@ -4,6 +4,15 @@ from pathlib import Path
 import shutil
 
 
+def project_python(root):
+    return Path(os.environ.get('LOCAL3D_PYTHON', root / '.venv/Scripts/python.exe'))
+
+
+def asset_root(root):
+    """Optional read-only model/reference store; runtime state stays in root."""
+    return Path(os.environ.get('LOCAL3D_ASSET_ROOT',root))
+
+
 def blender_executable():
     override = os.environ.get('LOCAL3D_BLENDER')
     if override:

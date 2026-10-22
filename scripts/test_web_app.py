@@ -115,6 +115,9 @@ class WebTests(unittest.TestCase):
             self.assertEqual(raised.exception.code, status)
             raised.exception.close()
         try:
+            with urlopen(url+'/api/health') as health:
+                # Embedded GLB textures use a local blob fetch, not a remote URL.
+                self.assertIn("connect-src 'self' blob:",health.headers['Content-Security-Policy'])
             body = json.dumps(request_data()).encode()
             rejected('/api/jobs', {'Content-Type':'application/json'}, 403, body)
             rejected('/api/jobs', {'Content-Type':'application/json','X-Local3D-Token':self.app.token,

@@ -15,10 +15,14 @@ import psutil
 from controller import ROOT, resources, save
 from native_process import OwnedProcess
 from strata_plan import validate_plan
-from runtime_paths import blender_executable
+from runtime_paths import blender_executable, project_python
 
-PYTHON = ROOT / '.venv/Scripts/python.exe'
+PYTHON = project_python(ROOT)
 BLENDER = blender_executable()
+
+
+class StageError(RuntimeError):
+    """A child exited unsuccessfully; ownership/deadline failures propagate."""
 
 
 def progress(folder, state, message, **extra):
@@ -47,8 +51,8 @@ def stage(folder, command, name, timeout, log_dir=None, env=None):
             tail = (target / f'{name}.log').read_text(errors='replace')[-1800:]
             print(tail, file=sys.stderr, flush=True)
             if 'out of memory' in tail.lower():
-                raise RuntimeError('GPU memory was exhausted. Close other GPU apps and try Balanced quality.')
-            raise RuntimeError(f'{name.capitalize()} could not finish. Diagnostic details were saved in the local job folder.')
+                raise StageError('GPU memory was exhausted. Close other GPU apps and try Balanced quality.')
+            raise StageError(f'{name.capitalize()} could not finish. Diagnostic details were saved in the local job folder.')
     finally:
         owned.close()
         record['owned_shutdown_confirmed'] = owned.shutdown_confirmed
@@ -142,16 +146,37 @@ def run(folder):
         if accepted is None:
             raise ValueError('Both geometry checks rejected the result.' if job['settings']['max_attempts'] == 2
                              else 'Geometry check rejected the result. Try clearer views or allow flat objects if appropriate.')
-        progress(folder, 'exporting', 'Preparing Unity scale, reducing geometry and checking the FBX export')
+        texture = {'mode':'none','status':'not_requested'}
+        export_args = []
+        if job['settings'].get('texture','none') == 'photo_basecolor':
+            progress(folder,'texturing','Preparing final geometry and UVs for photo color')
+            stage(folder,[BLENDER,'--background','--factory-startup','--python-exit-code','1',
+                '--python','scripts/blender_geometry.py','--','--input',accepted/'raw.glb',
+                '--output-dir',folder/'geometry','--height',str(job['settings']['height']),
+                '--triangles',str(job['settings']['triangles'])],'uv-geometry',300)
+            export_args = ['--prepared-blend',folder/'geometry/geometry.blend']
+            progress(folder,'texturing','Fitting photos, checking visible surfaces and baking base color')
+            try:
+                stage(folder,[PYTHON,'-B','scripts/photo_bake.py','--job-dir',folder,
+                    '--geometry',folder/'geometry/geometry.npz','--output-dir',folder/'texture',
+                    '--size',str(job['settings'].get('texture_size',1024))],'photo-bake',600)
+                texture = json.loads((folder/'texture/bake-report.json').read_text())
+                export_args += ['--texture-dir',folder/'texture']
+            except StageError as error:
+                # No paint retry. Preserve evidence and the usable frozen mesh.
+                texture = {'mode':'photo_basecolor','status':'failed','warnings':[
+                    str(error),'Untextured mesh exported; photo baking did not succeed.']}
+        progress(folder, 'exporting', 'Exporting the mesh and validating FBX geometry and material files')
         stage(folder, [BLENDER, '--background', '--factory-startup', '--python-exit-code', '1',
             '--python', 'scripts/blender_unity.py', '--', '--input', accepted / 'raw.glb',
             '--output-dir', folder / 'asset', '--height', str(job['settings']['height']),
-            '--triangles', str(job['settings']['triangles'])], 'blender', 300)
+            '--triangles', str(job['settings']['triangles']),*export_args], 'blender', 300)
         export = json.loads((folder / 'asset/export-report.json').read_text())
         report = {'name': job['name'], 'model': report['model'], 'views_used': job['views'],
             'attempts': attempt, 'plan': attempt_plan, 'shape': report, 'export': export,
             'visual_acceptance': 'Inspect likeness in the viewer; automated checks only validate basic geometry',
-            'seconds': time.time() - job['created_at'], 'textures': False, 'rigged': False,
+            'seconds': time.time() - job['created_at'], 'textures':texture['status']=='applied',
+            'texture':texture, 'rigged': False,
             'source_sha256': hashes, 'model_provenance': json.loads((ROOT / 'upstream.json').read_text()),
             'post_run_resources': resources(),
             'all_owned_stages_stopped': all(json.loads(line)['owned_shutdown_confirmed']
@@ -159,15 +184,27 @@ def run(folder):
         save(folder / 'report.json', report)
         (folder / 'asset/UNITY_README.txt').write_text(
             'Drag asset.fbx into your Unity project Assets folder.\n'
-            'Static mesh, no skeleton, animation or generated PBR textures.\n'
+            'Static mesh, no skeleton, animation or generated PBR maps.\n'
             'Export axes: -Z forward, Y up. Height is in meters; FBX scale/unit metadata applied.\n'
             'Use a material in Unity, inspect orientation and review mesh collider/LOD needs.\n'
-            'Automated file checks do not establish likeness or game readiness.\n')
+            'Automated file checks do not establish likeness or game readiness.\n'
+            'When textures/ exists, keep it beside asset.fbx. In Unity create a material,\n'
+            'assign textures/basecolor.png to Base Map/Albedo (sRGB), metallic 0, roughness 0.8\n'
+            '(smoothness 0.2). These are assumed constants, not recovered physical properties.\n'
+            'coverage.png is a diagnostic mask, not an opacity map. Never use it as alpha.\n')
         with zipfile.ZipFile(folder / 'asset/unity-package.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
             for name in ('asset.fbx', 'UNITY_README.txt', 'export-report.json'):
                 archive.write(folder / 'asset' / name, name)
             archive.write(folder / 'report.json', 'generation-report.json')
-        progress(folder, 'completed', 'FBX ready · inspect the model before importing it into Unity', attempt=attempt)
+            if report['textures']:
+                archive.write(folder/'asset/material-manifest.json','material-manifest.json')
+                for name in ('basecolor','coverage','uvmask'):
+                    archive.write(folder/f'asset/textures/{name}.png',f'textures/{name}.png')
+        message = ('Textured FBX and Unity ZIP ready · inspect the photo coverage'
+                   if report['textures'] else 'FBX ready · inspect the model before importing it into Unity')
+        if texture['status']=='failed':
+            message = 'Photo baking failed; untextured FBX available. See the report.'
+        progress(folder,'completed',message,attempt=attempt)
     finally:
         lock.unlink(missing_ok=True)
 

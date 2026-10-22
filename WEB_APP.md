@@ -13,11 +13,15 @@ task or automatic Windows startup entry is installed.
    Keep pose, framing, lighting and distance consistent. Transparent PNGs work
    best; otherwise choose automatic background removal for objects or people.
 2. Name the asset, choose quality, height in meters and a triangle budget.
+   Surface color defaults to **Bake colors from your photos**. Choose
+   **Untextured mesh** to skip UV/color processing.
 3. Click Generate. The local queue runs one job at a time. Inspect the cutouts
    and final mesh in the viewer. Drag to orbit; use Wireframe to inspect density.
-4. Download the FBX or Unity ZIP. Drag asset.fbx into a Unity project's Assets
-   folder and assign a material. These are static meshes: no generated PBR
-   textures, rig, animations, collision setup or LOD system.
+4. Download **FBX + colors ZIP**, extract it and copy the whole folder into
+   Unity's Assets. Keep `textures/` beside `asset.fbx`. Assign the base-color PNG
+   to a material's Base Map/Albedo with sRGB enabled, metallic 0 and smoothness
+   0.2. Coverage/UV masks are diagnostics, never opacity maps. These are static
+   meshes: no generated PBR maps, rig, animations, collision setup or LOD system.
 
 One reference uses the existing Hunyuan3D-2.1 checkpoint. Two to four labelled
 views use Tencent's separate **Hunyuan3D-2mv** checkpoint, with every supplied
@@ -48,6 +52,21 @@ inspection of orientation/materials; an Editor import is not claimed by Blender
 validation. A triangle budget is a reduction target, not a promise of useful
 animation topology.
 
+With photo color enabled, Blender freezes the final geometry and unwraps UVs
+before a separate CPU worker fits the labelled views. Visibility checks reject
+hidden/back-facing samples. Each texel uses the highest-confidence visible
+source, rather than averaging misaligned photo details. Unknown surface texels
+remain neutral gray. The UI/report show UV-texel coverage, fit warnings and
+texture hashes. This is approximate cardinal camera fitting, not a measured
+camera solve. Seams and feature-placement errors remain possible.
+
+The exporter assigns the color image, packs it into `.blend`, embeds it in GLB
+and writes relative PNG paths for FBX. Fresh FBX reimport checks UVs and the color
+hash as well as geometry. The ZIP includes all color/diagnostic maps and a
+relative-path material manifest. A failed bake subprocess produces a warned
+untextured export; a timeout, cancellation or process-ownership failure stops
+the job. Neural Paint is not used. See [PHOTO_BAKING.md](docs/PHOTO_BAKING.md).
+
 ## Persistence and limits
 
 - SQLite queue: work/web-jobs.sqlite3. Private originals, prepared images,
@@ -57,7 +76,8 @@ animation topology.
   finished results and pending jobs; an in-flight job is marked interrupted,
   not secretly rerun. Cancellation closes the owned Windows process tree.
 - At most 10 queued/running jobs. Preparation 240 seconds, optional Strata
-  600 seconds, each shape attempt 1,200 seconds, Blender 300 seconds and overall
+  600 seconds, each shape attempt 1,200 seconds, UV preparation 300 seconds,
+  photo baking 600 seconds, Blender export 300 seconds and overall
   job 3,600 seconds. Jobs stop if a deadline, cancellation or process error occurs.
 - At least 8 GiB free system RAM and 10,000 MiB free GPU memory are required at
   job start. These checks are floors, not guarantees of memory fit. Work is
@@ -94,11 +114,21 @@ counts and world bounds. The browser
 loaded the resulting GLB without console errors and rendered the interactive
 mesh. The FBX and Unity ZIP download endpoints were checked separately.
 
-Eleven automated checks cover process ownership, bounded second-seed behavior,
+Automated checks cover process ownership, bounded second-seed behavior,
 queue persistence, interrupted-job recovery, queued/running cancellation,
 no crash restart, invalid uploads/settings, Host/Origin/token checks and file
 path boundaries. Browser checks also exercised selecting a local image,
 loading example views, submitting a job and cancelling it while queued.
+
+Photo-color verification adds depth occlusion, cardinal camera handedness,
+degenerate UV handling, unseen-surface neutrality, reference hash checks,
+competing photo colors, bounded texture settings, bake-failure fallback and
+deadline/cancellation propagation. A real color demo and relocated ZIP check
+are recorded in [PHOTO_BAKING.md](docs/PHOTO_BAKING.md). All 24 regression checks
+passed. The corrected color demo completed in 177 seconds with 75.7% UV-texel
+coverage and a 50,000-triangle FBX; browser color/clay/wireframe controls and the
+ZIP download were exercised. Unity Editor import
+remains untested.
 
 An earlier test exposed one duplicate triangle after decimation; validation
 now removes invalid/duplicate faces before recording the expected export.

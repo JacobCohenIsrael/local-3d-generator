@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import onnxruntime as ort
 from PIL import Image, ImageOps
+from runtime_paths import asset_root
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -32,7 +33,7 @@ def main():
                 options = ort.SessionOptions()
                 options.intra_op_num_threads = 4
                 options.inter_op_num_threads = 1
-                session = ort.InferenceSession(str(ROOT / f'models/segmentation/{model_name}.onnx'),
+                session = ort.InferenceSession(str(asset_root(ROOT) / f'models/segmentation/{model_name}.onnx'),
                     sess_options=options, providers=['CPUExecutionProvider'])
             rgb = np.asarray(image.convert('RGB').resize((320, 320), Image.Resampling.LANCZOS), dtype=np.float32)
             rgb /= max(float(rgb.max()), 1)

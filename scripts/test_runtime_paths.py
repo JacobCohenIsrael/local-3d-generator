@@ -5,10 +5,18 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from runtime_paths import blender_executable
+from runtime_paths import blender_executable, project_python, asset_root
 
 
 class RuntimePathTests(unittest.TestCase):
+    def test_worktree_overrides_are_explicit_and_defaults_are_local(self):
+        with patch.dict(os.environ,{},clear=True):
+            self.assertEqual(project_python(Path('checkout')),Path('checkout/.venv/Scripts/python.exe'))
+            self.assertEqual(asset_root(Path('checkout')),Path('checkout'))
+        with patch.dict(os.environ,{'LOCAL3D_PYTHON':'tools/python.exe','LOCAL3D_ASSET_ROOT':'assets'},clear=True):
+            self.assertEqual(project_python(Path('checkout')),Path('tools/python.exe'))
+            self.assertEqual(asset_root(Path('checkout')),Path('assets'))
+
     def test_explicit_environment_override_wins(self):
         with patch.dict(os.environ, {'LOCAL3D_BLENDER': 'custom/blender.exe'}, clear=True), \
              patch('runtime_paths.shutil.which', return_value='other/blender'):
