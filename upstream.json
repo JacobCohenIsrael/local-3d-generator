@@ -1,0 +1,23 @@
+{
+  "hunyuan3d": {
+    "repository": "https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1",
+    "commit": "82920d643c0dc2f7bfd7255f45f62d386edfe60c",
+    "source_directory": "work/vendor/Hunyuan3D-2.1",
+    "model_repository": "tencent/Hunyuan3D-2.1",
+    "model_subfolder": "hunyuan3d-dit-v2-1",
+    "weights_filename": "model.fp16.ckpt",
+    "scope": "Shape inference only; upstream license retained in ignored checkout.",
+    "model_revision": "0b94677654c57bb9a6b6845cd7b704ccf551d327"
+  },
+  "hunyuan3d_multiview": {
+    "repository": "https://github.com/Tencent-Hunyuan/Hunyuan3D-2",
+    "commit": "f8db63096c8282cb27354314d896feba5ba6ff8a",
+    "source_directory": "work/vendor/Hunyuan3D-2",
+    "model_repository": "tencent/Hunyuan3D-2mv",
+    "model_revision": "3a761b539b29fe4ff64714813aa9560fd66f5de0",
+    "model_subfolder": "hunyuan3d-dit-v2-mv",
+    "weights_filename": "model.fp16.safetensors",
+    "weights_sha256": "d36f5881bcdc56726b73e517cd444c13c60732431622da7268145355c8d38e9c",
+    "scope": "Official labelled-view shape model; separate from single-view 2.1."
+  }
+}

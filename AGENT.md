@@ -2,11 +2,22 @@
 
 ## Objective and current scope
 
+Owner steering on 22 October 2026 expands the scope to a local web app with
+image uploads, genuine multi-view generation, autonomous jobs and Unity FBX.
+The app may prepare cutouts and run one generation plus at most one additional
+seed after geometric rejection, without Codex intervention. Preserve each
+attempt. Do not retry crashes/OOM or run unbounded loops. This authorization
+supersedes the first-milestone UI/batch/game-export exclusions below for this
+specific app. Texture generation, training and rigging remain out of scope.
+The app defaults to bounded presets; Strata is an optional advanced planner
+because earlier Strata runs approached physical RAM exhaustion.
+
 Read README.md and NEXT_STEPS.md. Complete one native Windows Strata-planned,
 Hunyuan3D-2.1 image-to-mesh job followed by a Blender export. Work within this
 project. The owner authorized this experiment and project setup on 21 October
-2026. The immediate task is project foundations; do not describe planning or
-installation checks as a completed generation.
+2026. Native environment preparation is now documented in NATIVE_SETUP.md;
+follow NEXT_STEPS.md for current work. Do not describe planning, import checks
+or synthetic export checks as a completed generation.
 
 ## Workflow
 
@@ -30,28 +41,29 @@ installation checks as a completed generation.
 
 ## Resource and process handling
 
-Use a 16 GB VRAM planning budget. Keep host specifications in ignored local reports.
-Recheck available resources before execution. Run heavy inference stages
+Use a 16 GB VRAM planning budget. Recheck available resources before execution.
+Keep exact host specifications in ignored local reports. Run heavy inference stages
 sequentially; RAM and VRAM are separate budgets. Native execution removes the
 old container caps but does not increase physical VRAM or guarantee memory fit.
 
 Keep execution bounded with explicit per-stage deadlines and cancellation.
 Record observed resource readings with timestamps; do not invent telemetry.
-Handle errors/OOM as failed stages and preserve evidence. Do not automatically
-retry or restart failed inference. Own and identify every launched process and
+Handle errors/OOM as failed stages and preserve evidence. Only the web app's
+bounded second-seed policy above permits automatic retry after geometric
+rejection. Do not restart crashed inference. Own and identify every launched process and
 child process; stop only those owned by this project. Launch helpers hidden.
 Do not change firmware, fan/power settings, physical protections or global
 Docker/WSL state. Retain logs, source settings and failed outputs.
 
-Unrelated projects' advisory thermal profile was authorized for a specific Docker
-coding scope. Do not silently apply it or its historical approvals to this
-native project. Keep this project's observed conditions and execution policy
+Other projects' advisory thermal profiles have separate authorization.
+Do not silently apply their historical approvals to this native project.
+Keep this project's observed conditions and execution policy
 explicit, and use existing hardware protections.
 
 ## Boundaries and reporting
 
-No Docker/WSL dependency for this pipeline. No alteration or cleanup of Local
-Copilot, its cached models, runtime evidence, disks or installations. Do not
+No Docker/WSL dependency for this pipeline. Do not alter unrelated projects,
+their cached models, runtime evidence, disks or installations. Do not
 upgrade an existing Strata installation implicitly. Vision support and general
 tool calling must be established for the exact installed configuration before
 claiming them. Human review determines visual quality.
@@ -66,5 +78,14 @@ artifacts in Git. Keep one current NEXT_STEPS.md checkpoint rather than
 appending chronological logs. Report completed work, next action and actual
 limitations concisely. Do not claim speed, quality or cost savings unmeasured.
 
-These instructions govern this project. Unrelated projects' coding viability task
-and its 30-minute clock remain separate and are not started by this work.
+## Public repository privacy
+
+Keep personal emails, usernames, absolute host paths, network addresses,
+timezones, hardware inventories and raw telemetry out of tracked files.
+Use project-relative paths, environment overrides and explicit CLI arguments.
+Record private evidence only in ignored local directories. Use the configured
+GitHub noreply identity for commits. Generic loopback addresses, software
+requirements and upstream dependency versions may be documented.
+
+These instructions govern this project. Unrelated projects' tasks and timing
+policies remain separate and are not started by this work.

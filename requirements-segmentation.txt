@@ -1,0 +1,7 @@
+# Optional local CPU background removal, installed alongside the shape lock.
+onnxruntime==1.20.1
+coloredlogs==15.0.1
+flatbuffers==25.12.19
+humanfriendly==10.0
+protobuf==7.36.2
+pyreadline3==3.5.6

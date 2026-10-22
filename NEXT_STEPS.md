@@ -1,32 +1,36 @@
-# Current checkpoint - 21 October 2026
+# Current checkpoint
 
 ## Done
 
-- Created the separate Local 3D Generator project and moved this chat into it.
-  The working directory is now this project folder.
-- Defined the native Windows first milestone and acceptance conditions in
-  README.md, with authoritative AGENT.md guidance and an AGENTS.md entry point.
-- Initialized Git on main and added the MIT License for original project files.
-  Third-party software and model weights retain their upstream licenses.
-- Created the public GitHub repository and configured origin:
-  https://github.com/JacobCohenIsrael/local-3d-generator
-- Added ignore rules for inputs, jobs, generated outputs, scratch files,
-  environments, local settings and model weights.
-- Runtime inventory belongs in ignored local reports. Generation performance,
-  peak memory and output quality remain unverified.
-- Unrelated projects files, settings and runtime evidence remain unchanged.
+- Native Windows web app: image uploads, local CPU cutouts, persistent SQLite
+  queue, sequential CUDA inference, progress/history, cancellation, optional
+  Strata planning, interactive offline viewer and Unity FBX/ZIP downloads.
+- One reference uses Hunyuan3D-2.1; multiple labelled views use the separate
+  official Hunyuan3D-2mv model. Upstream revisions are pinned in upstream.json.
+- Jobs run independently of Codex with bounded geometry-rejection retries,
+  process-tree ownership, deadlines and explicit cancellation.
+- End-to-end multi-view validation produced a 50,000-triangle FBX at the
+  requested height. Blender reimport retained geometry and world bounds.
+  Download integrity, process shutdown and interactive rendering were checked.
+- Tests cover process lifecycle, invalid plans/settings/images, request-origin
+  boundaries, queue persistence/recovery, cancellation and bounded retries.
+- Public documentation covers installation, usage, Unity import, optional Strata
+  and troubleshooting. Original shape-only validation is in FIRST_RUN.md.
+- Privacy cleanup replaces host-specific paths with configurable discovery or
+  local CLI arguments. Host inventories, activity timestamps and raw telemetry
+  stay in ignored local evidence. Commits use the GitHub noreply identity.
 
 ## Left
 
-1. Inventory native Strata/model, Python, Blender, available RAM and disk. Initial
-   PATH lookup did not establish executable locations; inspect explicit existing
-   installation paths before downloading or installing anything.
-2. Prepare an isolated Hunyuan3D shape-only environment and record exact versions.
-3. Record one reference image, request/validate one real Strata job, and execute
-   sequential image-to-mesh generation followed by Blender import and export.
-4. Reopen the exported GLB, produce a preview/report, confirm owned shutdown and
-   record the owner's visual assessment separately from technical validation.
+- Owner reviews likeness and suitability of new generated assets.
+- Validate the FBX in an actual Unity Editor project; Blender checks alone do
+  not establish game readiness or animation topology.
+- Separate worktrees are investigating texture support and implementing a
+  clearly labelled workflow for more than four candidate views. Their changes
+  remain isolated from main until reviewed.
+- Rebase local development work onto the sanitized main history before publishing.
+  Do not merge old ancestry or reintroduce personal metadata/host paths.
+- Texture generation, rigging, LOD and collider setup remain separate features.
 
-No native model, Blender job, installation, download or GPU workload has run for
-this project. Repository setup does not establish generation success, native
-memory fit, performance or paid-token savings.
+Runtime inputs, model weights, generated assets, local paths and detailed
+resource evidence remain Git-ignored. No general speed/cost saving is claimed.
