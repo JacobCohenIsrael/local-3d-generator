@@ -126,3 +126,10 @@ requirements and upstream dependency versions may be documented.
 
 These instructions govern this project. Unrelated projects' tasks and timing
 policies remain separate and are not started by this work.
+
+## MCP integration (owner steering, 22 October 2026)
+
+The owner explicitly requests an MCP server, superseding the original milestone's
+MCP exclusion. Follow MCP.md. The stdio bridge shares the running web app queue;
+check local3d_status before using it. Do not start generation as setup verification.
+Keep protocol dependencies separate from the pinned shape environment.

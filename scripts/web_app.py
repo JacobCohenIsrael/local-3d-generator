@@ -142,9 +142,12 @@ class Workshop:
             db.execute('INSERT INTO jobs VALUES (?,?,?,?,NULL)', (job_id, name, 'queued', created))
         return job_id
 
-    def list(self):
+    def list(self, job_id=None):
         with self.db() as db:
-            records = db.execute('SELECT id,name,state,created,error FROM jobs ORDER BY created DESC LIMIT 100').fetchall()
+            if job_id is None:
+                records = db.execute('SELECT id,name,state,created,error FROM jobs ORDER BY created DESC LIMIT 100').fetchall()
+            else:
+                records = db.execute('SELECT id,name,state,created,error FROM jobs WHERE id=?', (job_id,)).fetchall()
         result = []
         for job_id, name, state, created, error in records:
             folder = self.jobs / job_id
@@ -235,8 +238,12 @@ def handler(workshop, port):
             path = urlparse(self.path).path
             if path == '/api/jobs':
                 return self.send(200, workshop.list())
+            match = re.fullmatch(r'/api/jobs/([a-f0-9]{32})', path)
+            if match:
+                jobs = workshop.list(match[1])
+                return self.send(200, jobs[0]) if jobs else self.send(404, {'error': 'Job not found'})
             if path == '/api/health':
-                return self.send(200, {'ready': True, 'mode': 'local', 'version': 2,'photo_baking':True,
+                return self.send(200, {'service': 'local-3d-generator', 'ready': True, 'mode': 'local', 'version': 2,'photo_baking':True,
                     'max_candidate_images':MAX_CANDIDATES,'max_conditioned_views':4,'view_strategy':HYBRID_STRATEGY,
                     'vision_configured':(ROOT/'work/strata-vision.json').is_file(),
                     'multiview_ready': (asset_root(ROOT) / 'models/hunyuan3d-2mv/hunyuan3d-dit-v2-mv/model.fp16.safetensors').is_file(),

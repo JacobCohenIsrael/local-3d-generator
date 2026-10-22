@@ -368,3 +368,8 @@ its [MIT license](web/vendor/THREE-LICENSE.txt).
 - [Hunyuan3D-2mv model card](https://huggingface.co/tencent/Hunyuan3D-2mv)
 - [Hunyuan3D-2 source](https://github.com/Tencent-Hunyuan/Hunyuan3D-2)
 - [Strata](https://github.com/Niko1221/Strata)
+
+## Connect your agents
+
+Use the [local MCP server](MCP.md) to generate and retrieve assets from
+Claude Code, Codex or another project. Call `local3d_status` to check availability.
