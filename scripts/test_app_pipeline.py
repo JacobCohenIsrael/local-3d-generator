@@ -7,9 +7,55 @@ import unittest
 from unittest.mock import patch
 
 import app_pipeline
+from app_images import prepare_job
+from app_views import conditioned_views
+from test_app_views import request
+from web_app import Workshop
 
 
 class PipelineTests(unittest.TestCase):
+    def test_extra_candidates_report_only_conditioned_views_and_zip_has_audit(self):
+        with tempfile.TemporaryDirectory(dir=app_pipeline.ROOT / 'work') as directory:
+            root = Path(directory)
+            (root / 'scripts').mkdir()
+            (root / 'upstream.json').write_text('{}')
+            app = Workshop(root)
+            data = request()
+            data['settings']['max_attempts'] = 1
+            job_id = app.create(data)
+            folder = app.jobs / job_id
+            shape_inputs = []
+            def fake_stage(job_folder, command, name, timeout, log_dir=None, env=None):
+                if name == 'cutouts':
+                    prepare_job(folder)
+                elif name == 'shape':
+                    job = json.loads((folder / 'job.json').read_text())
+                    shape_inputs.extend(conditioned_views(folder, job))
+                    target = Path(log_dir)
+                    (target / 'raw.glb').write_bytes(b'preserved raw')
+                    (target / 'shape-report.json').write_text(json.dumps({'model':'test-boundary-stub',
+                        'quality_pass':True,'views_used':shape_inputs}))
+                elif name == 'blender':
+                    asset = folder / 'asset'
+                    asset.mkdir()
+                    (asset / 'asset.fbx').write_bytes(b'test-boundary-stub')
+                    (asset / 'export-report.json').write_text('{}')
+                with (folder / 'stages.jsonl').open('a') as stream:
+                    stream.write(json.dumps({'owned_shutdown_confirmed':True})+'\n')
+            with patch.object(app_pipeline,'ROOT',root), patch.object(app_pipeline,'stage',side_effect=fake_stage), \
+                 patch.object(app_pipeline,'resources',return_value={'ram_available_bytes':16*2**30,'gpu_free_mib':15000}):
+                app_pipeline.run(folder)
+            report = json.loads((folder/'report.json').read_text())
+            self.assertEqual(shape_inputs,['front','left','back','right'])
+            self.assertEqual(report['submitted_view_count'],6)
+            self.assertEqual(len(report['views_used']),4)
+            self.assertFalse(report['view_selection']['all_uploads_conditioned'])
+            import zipfile
+            with zipfile.ZipFile(folder/'asset/unity-package.zip') as archive:
+                selection = json.loads(archive.read('view-selection.json'))
+                self.assertEqual(selection['submitted_count'],6)
+                self.assertEqual(selection['selected_count'],4)
+
     def test_reject_once_then_accept_uses_exactly_two_seeds(self):
         with tempfile.TemporaryDirectory(dir=app_pipeline.ROOT / 'work') as directory:
             root = Path(directory)

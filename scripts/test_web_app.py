@@ -125,6 +125,17 @@ class WebTests(unittest.TestCase):
                 'Content-Type':'application/json','X-Local3D-Token':self.app.token,'Origin':url}))
             self.assertEqual(response.status, 201)
             response.close()
+            from test_app_views import request
+            from app_images import prepare_job
+            job_id = self.app.create(request())
+            prepare_job(self.app.jobs / job_id)
+            with urlopen(url+f'/api/jobs/{job_id}/files/selection') as response:
+                self.assertEqual(json.load(response)['submitted_count'],6)
+                self.assertIn('attachment',response.headers['Content-Disposition'])
+            with urlopen(url+f'/api/jobs/{job_id}/candidates/extra-01') as response:
+                self.assertEqual(response.headers['Content-Type'],'image/png')
+            rejected(f'/api/jobs/{job_id}/candidates/extra-99',{},404)
+            rejected(f'/api/jobs/{job_id}/candidates/../../job.json',{},404)
         finally:
             server.shutdown()
             server.server_close()

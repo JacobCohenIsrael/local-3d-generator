@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import sys
 import time
+from app_views import conditioned_views, candidates_for
 
 ROOT = Path(__file__).resolve().parents[1]
 os.environ.update(HF_HOME=str(ROOT / 'work/huggingface'), HF_HUB_OFFLINE='1',
@@ -19,7 +20,8 @@ def main():
     args = parser.parse_args()
     job = json.loads((args.job_dir / 'job.json').read_text())
     plan = json.loads((args.attempt_dir / 'plan.json').read_text())
-    multi = len(job['views']) > 1
+    selected = conditioned_views(args.job_dir, job)
+    multi = len(selected) > 1
     import torch
     import numpy as np
     from PIL import Image
@@ -46,7 +48,7 @@ def main():
     prepared = args.job_dir / 'prepared'
     provenance = json.loads((prepared / 'provenance.json').read_text())
     views = {}
-    for name in job['views']:
+    for name in selected:
         path = prepared / f'{name}.png'
         if hashlib.sha256(path.read_bytes()).hexdigest() != provenance['views'][name]['sha256']:
             raise ValueError('Prepared image integrity check failed')
@@ -66,6 +68,7 @@ def main():
     elif ratio < .015 and not job['settings']['allow_flat']:
         reason = 'Geometry collapsed into an almost flat slab'
     report = {'model': 'Hunyuan3D-2mv' if multi else 'Hunyuan3D-2.1', 'views_used': list(views),
+        'submitted_view_count': len(candidates_for(job)), 'extra_view_fusion': False,
         'plan': plan, 'vertices': len(mesh.vertices), 'triangles': len(mesh.faces), 'extents': extents,
         'extent_ratio': ratio, 'quality_pass': reason is None, 'rejection_reason': reason,
         'visual_acceptance': 'Human review required; automatic checks do not assess likeness',

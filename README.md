@@ -6,7 +6,11 @@ generation, geometry checks, Blender export and a rotatable preview. Submitted
 jobs run without Codex or an open browser tab.
 
 - **One image:** Hunyuan3D-2.1.
-- **Two to four views:** the separate Hunyuan3D-2mv model uses all supplied angles.
+- **Two to four selected views:** the separate Hunyuan3D-2mv model conditions on
+  the supported front/left/back/right directions.
+- **More photos:** upload up to 16 candidates. CPU selection chooses at most four
+  model inputs and reports every selected/unselected photo; this is not all-angle
+  fusion. See [MORE_ANGLES.md](MORE_ANGLES.md) for exact limits.
 - **Downloads:** FBX, Unity ZIP, Blender project and generation report.
 - **Local processing:** uploads, models, job history and generated assets stay on
   your machine. Installation downloads dependencies and model files once.
@@ -128,6 +132,11 @@ app's **Cancel generation** button when you only want to stop a job.
    image, then optionally add **left**, **back** and **right** views of the same
    subject. Supported files are JPEG, PNG and WebP, up to 12 MB and 20 megapixels
    each, with a minimum width/height of 64 pixels.
+   For alternates, choose **Add photos** and enter each photo's camera angle.
+   The combined limit is 16 photos / 48 MiB. **Select views & generate** chooses
+   at most four inputs; the job's selection panel explains every choice. Diagonal
+   photos outside the documented selection window and top/bottom views are not
+   conditioned by this checkpoint.
 3. Keep the subject's pose, framing, lighting and camera distance consistent
    across views. Include the whole subject and avoid other people/objects in
    frame. More angles can help constrain shape but do not guarantee likeness.

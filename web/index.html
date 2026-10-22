@@ -26,8 +26,12 @@
           <div class="section-heading"><div><span class="step">01</span><h2>Your reference images</h2></div><button id="demo" type="button" class="text-button">Try an example ↗</button></div>
           <p class="section-description">Start with the front. Add other angles for multi-view generation.</p>
           <div id="view-grid" class="view-grid"></div>
+          <div class="extra-heading"><div><h3>More angles &amp; alternates</h3><p id="candidate-count">0 / 16 images</p></div><button type="button" class="secondary" id="add-extras">Add photos ＋</button><input type="file" id="extra-input" accept="image/jpeg,image/png,image/webp" multiple hidden></div>
+          <p class="extra-description">Upload up to 16 photos total (48 MB combined). The model selects at most one photo near each of four supported directions. Extra angles help candidate selection; they are not fused into the mesh.</p>
+          <div id="extra-list" class="extra-list"></div>
+          <p class="angle-guide">Camera angles: front 0°, left 90°, back 180°, right 270°. Stay at the same height. Diagonal photos more than 30° from these directions are retained but not used for conditioning. Top/bottom views are unsupported.</p>
           <div class="reference-tip"><span>◈</span><p>Use the same pose, lighting, and distance in every view. Keep the whole subject in frame, with one subject per image.</p></div>
-          <div class="model-note" id="model-note">1 view → Hunyuan3D 2.1 · 2–4 views → Hunyuan3D 2mv</div>
+          <div class="model-note" id="model-note">Up to 16 candidate photos → at most 4 selected model inputs</div>
         </section>
         <section class="panel settings">
           <div class="section-heading"><div><span class="step">02</span><h2>Make it yours</h2></div></div>
@@ -46,7 +50,7 @@
     <section class="panel result" id="result" hidden>
       <div class="result-heading"><div><div class="eyebrow">YOUR GENERATION</div><h2 id="result-name"></h2></div><span class="status-pill" id="status-pill"></span></div>
       <div class="result-grid"><div class="viewer" id="viewer"><div id="viewer-empty"><span class="cube">◇</span><p>Your mesh will appear here.</p><span>Rotate to inspect before using it.</span></div><canvas id="canvas" hidden aria-label="Interactive 3D model preview"></canvas><img id="fallback-preview" hidden alt="Rendered mesh preview"><div class="viewer-controls" hidden id="viewer-controls"><span>Drag to rotate · scroll to zoom</span><button type="button" id="wireframe">Wireframe</button></div></div>
-        <div class="job-detail"><div class="stage-list" id="stages"></div><p id="job-message" aria-live="polite"></p><p class="small muted" id="job-time"></p><div id="prepared-views" class="prepared-views"></div><div id="downloads" class="downloads"></div><button id="cancel" type="button" class="secondary" hidden>Cancel generation</button><p class="small muted">Geometry checks catch empty or collapsed meshes. They cannot judge likeness. Multi-view generation is an estimate, not a measured 3D scan.</p></div>
+        <div class="job-detail"><div class="stage-list" id="stages"></div><p id="job-message" aria-live="polite"></p><p class="small muted" id="job-time"></p><div id="prepared-views" class="prepared-views"></div><details id="selection-details" class="selection-details" hidden><summary id="selection-heading">View selection</summary><p>Only the selected photos condition the model. All other photos remain saved. Selection considers clarity and angle, not whether the pose or subject is correct.</p><div id="selection-list"></div><a id="selection-download">Download view-selection report</a></details><div id="downloads" class="downloads"></div><button id="cancel" type="button" class="secondary" hidden>Cancel generation</button><p class="small muted">Geometry checks catch empty or collapsed meshes. They cannot judge likeness. Multi-view generation is an estimate, not a measured 3D scan.</p></div>
       </div>
     </section>
     <footer><span>LOCAL 3D GENERATOR</span><span>Native Windows · Hunyuan3D · Blender</span></footer>

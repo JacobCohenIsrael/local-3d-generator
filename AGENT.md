@@ -2,6 +2,11 @@
 
 ## Objective and current scope
 
+This fork implements the owner's extra-angle request as an explicitly labelled
+candidate-selection workflow. Do not claim all uploaded angles condition the
+four-slot checkpoint. Retain every input and its selection reason. True
+all-angle fusion remains unsupported; see MORE_ANGLES.md.
+
 Owner steering on 22 October 2026 expands the scope to a local web app with
 image uploads, genuine multi-view generation, autonomous jobs and Unity FBX.
 The app may prepare cutouts and run one generation plus at most one additional

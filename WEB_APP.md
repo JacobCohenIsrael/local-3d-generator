@@ -12,6 +12,9 @@ task or automatic Windows startup entry is installed.
    JPEG, PNG and WebP are accepted, up to 12 MB and 20 megapixels per image.
    Keep pose, framing, lighting and distance consistent. Transparent PNGs work
    best; otherwise choose automatic background removal for objects or people.
+   **Add photos** accepts extra candidates up to 16 total / 48 MiB combined.
+   Enter their azimuths; CPU selection chooses at most four supported inputs.
+   The job shows all selected/unselected photos and reasons. See MORE_ANGLES.md.
 2. Name the asset, choose quality, height in meters and a triangle budget.
 3. Click Generate. The local queue runs one job at a time. Inspect the cutouts
    and final mesh in the viewer. Drag to orbit; use Wireframe to inspect density.
@@ -19,10 +22,11 @@ task or automatic Windows startup entry is installed.
    folder and assign a material. These are static meshes: no generated PBR
    textures, rig, animations, collision setup or LOD system.
 
-One reference uses the existing Hunyuan3D-2.1 checkpoint. Two to four labelled
-views use Tencent's separate **Hunyuan3D-2mv** checkpoint, with every supplied
-view passed to its multi-view image processor. Uploads are not combined into a
-collage or silently ignored. This is generative reconstruction, not calibrated
+One selected reference uses the existing Hunyuan3D-2.1 checkpoint. Two to four
+selected views use Tencent's separate **Hunyuan3D-2mv** checkpoint. Extra uploads
+are prepared and scored, but only the selected cardinal images reach its image
+processor. Every photo has a selection reason and remains saved. This is
+candidate selection, not fusion of every angle, and not calibrated
 photogrammetry; extra views do not guarantee correct faces, hands or backs.
 
 The default preset avoids loading the large Strata language model, which came

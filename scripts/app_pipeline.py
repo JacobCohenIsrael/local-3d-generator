@@ -16,8 +16,9 @@ from controller import ROOT, resources, save
 from native_process import OwnedProcess
 from strata_plan import validate_plan
 from runtime_paths import blender_executable
+from app_views import conditioned_views, candidates_for
 
-PYTHON = ROOT / '.venv/Scripts/python.exe'
+PYTHON = Path(sys.executable)
 BLENDER = blender_executable()
 
 
@@ -58,6 +59,7 @@ def stage(folder, command, name, timeout, log_dir=None, env=None):
 
 def plan_job(folder, job):
     settings = job['settings']
+    selected_views = conditioned_views(folder, job)
     plan = {'seed': secrets.randbelow(2**31), 'steps': 30 if settings['quality'] == 'balanced' else 50,
             'octree_resolution': 256 if settings['quality'] == 'balanced' else 384,
             'guidance_scale': 5.0, 'num_chunks': 2048}
@@ -69,8 +71,8 @@ def plan_job(folder, job):
         with Image.open(folder / 'prepared/front.png') as image:
             dimensions = list(image.size)
         save(planning / 'input.json', {'dimensions': dimensions, 'quality': settings['quality'],
-            'subject': job['name'], 'model': 'Hunyuan3D-2mv' if len(job['views']) > 1 else 'Hunyuan3D-2.1',
-            'views': job['views']})
+            'subject': job['name'], 'model': 'Hunyuan3D-2mv' if len(selected_views) > 1 else 'Hunyuan3D-2.1',
+            'views': selected_views, 'submitted_images': len(candidates_for(job))})
         config_path = ROOT / 'work/strata-native.json'
         config = json.loads(config_path.read_text())
         baseline = resources()
@@ -123,6 +125,9 @@ def run(folder):
             raise RuntimeError('Less than 10 GB GPU memory free. Close other GPU workloads and submit again.')
         progress(folder, 'preparing', 'Isolating the subject in each uploaded view')
         stage(folder, [PYTHON, '-B', 'scripts/app_images.py', '--job-dir', folder], 'cutouts', 240)
+        selected_views = conditioned_views(folder, job)
+        selection_path = folder / 'view-selection.json'
+        selection = json.loads(selection_path.read_text(encoding='utf-8')) if selection_path.exists() else None
         plan = plan_job(folder, job)
         accepted = None
         for attempt in range(1, job['settings']['max_attempts'] + 1):
@@ -131,7 +136,7 @@ def run(folder):
             attempt_plan = dict(plan)
             attempt_plan['seed'] = (plan['seed'] + (attempt - 1) * 104729) % 2**31
             save(target / 'plan.json', attempt_plan)
-            progress(folder, 'generating', f'Building geometry · attempt {attempt} of {job["settings"]["max_attempts"]}', attempt=attempt)
+            progress(folder, 'generating', f'Building geometry from {len(selected_views)} selected views · attempt {attempt} of {job["settings"]["max_attempts"]}', attempt=attempt)
             stage(folder, [PYTHON, '-B', 'scripts/app_shape.py', '--job-dir', folder,
                            '--attempt-dir', target], 'shape', 1200, target)
             report = json.loads((target / 'shape-report.json').read_text())
@@ -148,7 +153,8 @@ def run(folder):
             '--output-dir', folder / 'asset', '--height', str(job['settings']['height']),
             '--triangles', str(job['settings']['triangles'])], 'blender', 300)
         export = json.loads((folder / 'asset/export-report.json').read_text())
-        report = {'name': job['name'], 'model': report['model'], 'views_used': job['views'],
+        report = {'name': job['name'], 'model': report['model'], 'views_used': selected_views,
+            'submitted_view_count': len(candidates_for(job)), 'view_selection': selection,
             'attempts': attempt, 'plan': attempt_plan, 'shape': report, 'export': export,
             'visual_acceptance': 'Inspect likeness in the viewer; automated checks only validate basic geometry',
             'seconds': time.time() - job['created_at'], 'textures': False, 'rigged': False,
@@ -167,6 +173,8 @@ def run(folder):
             for name in ('asset.fbx', 'UNITY_README.txt', 'export-report.json'):
                 archive.write(folder / 'asset' / name, name)
             archive.write(folder / 'report.json', 'generation-report.json')
+            if selection_path.exists():
+                archive.write(selection_path, 'view-selection.json')
         progress(folder, 'completed', 'FBX ready · inspect the model before importing it into Unity', attempt=attempt)
     finally:
         lock.unlink(missing_ok=True)
