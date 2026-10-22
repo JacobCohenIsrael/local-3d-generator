@@ -10,7 +10,8 @@ jobs run without Codex or an open browser tab.
 - **Extra photos:** upload up to 16 total without angle numbers. Local Strata
   vision selects compatible views and explains every choice; at most four
   selected photos condition the model. See [MORE_ANGLES.md](MORE_ANGLES.md).
-- **Photo colors:** project the supplied photos onto UVs; unseen regions stay neutral.
+- **Photo colors:** project selected photos onto UVs; optional estimated color
+  extension reduces gray gaps while preserving a separate photo-coverage mask.
 - **Downloads:** FBX with external color PNGs in a Unity ZIP, Blender project and report.
 - **Local processing:** uploads, models, job history and generated assets stay on
   your machine. Installation downloads dependencies and model files once.
@@ -158,6 +159,9 @@ app's **Cancel generation** button when you only want to stop a job.
    **Untextured mesh**. The app bakes a 1024-pixel color atlas on CPU without
    additional neural weights. Camera fitting is approximate; poor alignment
    can cause seams or misplaced details.
+   Under **Unseen surface colors**, keep neutral gray for a diagnostic view or
+   select **Extend nearby colors · estimated** to reduce gray gaps. Estimated
+   color is labelled separately and does not increase photo coverage.
 7. Click **Generate asset**. Watch progress and prepared cutouts. Jobs are queued
    and run one at a time. Use **Cancel generation** to stop a queued/running job.
 8. Inspect the final mesh: drag to rotate, scroll to zoom and use **Wireframe**
@@ -175,8 +179,9 @@ Review the **selected / submitted photos** panel. Only the chosen cardinal
 cutouts condition the shape model and supply its color bake. Unselected photos
 remain saved with an explanation; they are not fused into the mesh or texture.
 The coverage figure counts UV surface texels, rather than physical surface area
-or confidence in likeness. Unseen/rejected texels are neutral gray; there is no
-neural painting or inpainting. A failed photo bake preserves an untextured export
+or confidence in likeness. Unseen/rejected texels are neutral gray by default.
+Optional nearest-surface color extension estimates missing colors and provides
+an `inferred.png` mask; there is no neural painting. A failed photo bake preserves an untextured export
 with a visible warning. Cancellation/deadlines stop the job rather than continuing
 to export. See [photo baking](docs/PHOTO_BAKING.md) for the limits and file contract.
 
@@ -189,7 +194,7 @@ to export. See [photo baking](docs/PHOTO_BAKING.md) for the limits and file cont
    to **Base Map / Albedo** with **sRGB** enabled, metallic **0** and smoothness
    **0.2** (roughness **0.8**). Assign the material to the model and inspect it
    in a scene. These constants are assumptions, not measured surface properties.
-4. Keep `coverage.png` and `uvmask.png` as diagnostics. Do **not** assign the
+4. Keep `coverage.png`, `uvmask.png` and optional `inferred.png` as diagnostics. Do **not** assign the
    coverage mask to opacity/alpha. Add colliders, LODs or other components as needed.
 
 The exporter centers the model horizontally, grounds its base, sets the requested
@@ -300,10 +305,14 @@ completed the HTTP queue in **177 seconds**, producing a **50,000-triangle** FBX
 at **1.8 meters** with **75.7% UV-texel color coverage**. A fresh Blender import
 from a relocated ZIP retained geometry, UVs and the correct local PNG. The GLB
 embedded matching color pixels, and the browser rendered the textured model.
-All **40 regression checks** passed, including selected extras and replacement
+All **44 regression checks** passed, including selected extras and replacement
 anchors reaching the bake, and protection against cross-view
 color ghosting and excessive camera tilt. This is one measured example, not a
 timing or quality guarantee. Seams and feature-placement errors can remain.
+Small-sprite color rebaking improved photo coverage from 30.0% to 46.4% on the
+same mesh. An optional 53.6% estimated color extension reduced gray patches;
+these figures remain separate in the report. A previous character demo retained
+its coverage and camera fit. See [photo baking](docs/PHOTO_BAKING.md).
 Host-specific paths, specifications and telemetry are kept in ignored local reports.
 
 - [WEB_APP.md](WEB_APP.md): app architecture, limits and validation details.

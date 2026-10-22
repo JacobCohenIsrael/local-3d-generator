@@ -11,12 +11,47 @@ from unittest.mock import patch
 import numpy as np
 from PIL import Image
 from photo_bake import bake
-from photo_projection import camera_basis, depth_buffer, triangle_pixels, fit_camera
+from photo_projection import camera_basis, depth_buffer, triangle_pixels, fit_camera, project, sample_view, extend_surface_colors
 from web_app import validate_request
 from test_web_app import request_data
 
 
 class PhotoBakeTests(unittest.TestCase):
+    def test_tiny_source_keeps_visible_sloped_surface_but_rejects_hidden_points(self):
+        vertices = np.array([[-1,1,-1],[1,-1,-1],[1,-1,1],[-1,1,1]],np.float32)
+        faces = np.array([[0,1,2],[0,2,3]])
+        points = np.array([[x,-x,0] for x in (.005,.02,-.005,-.02)],np.float32)
+        normals = np.tile(np.array([1,-1,0])/np.sqrt(2),(len(points),1))
+        camera = {'basis':camera_basis('front',0),'center':[0,0],'scale':16,
+            'photo_center':[32,32],'silhouette_iou':1}
+        rgba = np.ones((64,64,4),np.float32)
+        rgb,weight = sample_view(points,normals,vertices,faces,rgba,camera)
+        self.assertTrue((weight>0).all(),'Coarse source-sized depth must not remove a visible sloped surface')
+        hidden = points+np.array([0,.15,0])
+        _,hidden_weight = sample_view(hidden,normals,vertices,faces,rgba,camera)
+        self.assertTrue((hidden_weight==0).all(),'Increasing depth resolution must not paint hidden geometry')
+        self.assertTrue(np.allclose(rgb,1))
+
+    def test_elevated_view_can_fit_above_old_twenty_degree_limit(self):
+        vertices = np.array([[x,y,z] for z in (-.15,.15) for y in (-1.5,1.5) for x in (-1,1)])
+        faces = np.array([[0,1,3],[0,3,2],[4,6,7],[4,7,5],[0,4,5],[0,5,1],
+            [2,3,7],[2,7,6],[0,2,6],[0,6,4],[1,5,7],[1,7,3]])
+        camera = {'basis':camera_basis('front',40),'center':[0,0],'scale':10,'photo_center':[32,32]}
+        alpha = np.isfinite(depth_buffer(project(vertices,camera),faces,64,64)).astype(np.float32)
+        fitted = fit_camera(vertices,faces,alpha,'front')
+        self.assertGreaterEqual(fitted['elevation'],30)
+        self.assertGreater(fitted['silhouette_iou'],.85)
+
+    def test_color_extension_uses_3d_distance_and_preserves_observed_colors(self):
+        points = np.array([[0,0,0],[10,0,0],[.1,0,0],[9.9,0,0]])
+        colors = np.array([[1,0,0],[0,0,1],[.5,.5,.5],[.5,.5,.5]],np.float32)
+        covered = np.array([True,True,False,False])
+        extended = extend_surface_colors(points,colors,covered)
+        self.assertTrue(np.array_equal(extended[covered],colors[covered]))
+        self.assertTrue(np.array_equal(extended[2],colors[0]))
+        self.assertTrue(np.array_equal(extended[3],colors[1]))
+        self.assertTrue(np.array_equal(covered,[True,True,False,False]))
+
     def test_selected_extras_supply_bake_views_and_can_replace_front(self):
         root = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory(dir=root/'work') as directory:
@@ -55,7 +90,7 @@ class PhotoBakeTests(unittest.TestCase):
         alpha[4:60,12:52] = 1
         level = alpha.copy()
         level[32,32] = 0
-        silhouettes = [level,alpha,np.zeros_like(alpha)]
+        silhouettes = [level,alpha,*[np.zeros_like(alpha)]*5]
         depths = [np.where(mask>0,0,-np.inf) for mask in silhouettes]
         vertices = np.array([[-1,0,-1],[1,0,-1],[1,0,1],[-1,0,1]])
         with patch('photo_projection.depth_buffer',side_effect=depths):
@@ -111,7 +146,8 @@ class PhotoBakeTests(unittest.TestCase):
         self.assertIsNone(triangle_pixels(np.zeros((3,2)),64,64))
 
     def test_texture_settings_are_bounded(self):
-        for settings in ({'texture':'execute-something'},{'texture_size':8192},{'texture_size':True}):
+        for settings in ({'texture':'execute-something'},{'texture_size':8192},{'texture_size':True},
+                         {'texture_fill':'invented-mode'}):
             with self.subTest(settings=settings), self.assertRaises(ValueError):
                 validate_request(dict(request_data(),settings=settings))
         _,settings,_,_ = validate_request(dict(request_data(),settings={'texture':'photo_basecolor','texture_size':512}))
@@ -142,6 +178,18 @@ class PhotoBakeTests(unittest.TestCase):
             self.assertEqual(coverage[32,48],0)
             self.assertAlmostEqual(report['coverage_fraction'],.5,delta=.08)
             self.assertFalse(report['generated_or_inpainted_pixels'])
+            # Estimated fill is opt-in and cannot inflate photo coverage.
+            with contextlib.redirect_stdout(io.StringIO()):
+                filled = bake(folder,folder/'geometry.npz',folder/'filled',64,'nearest_surface')
+            filled_atlas = np.asarray(Image.open(folder/'filled/basecolor.png'))
+            inferred = np.asarray(Image.open(folder/'filled/inferred.png'))
+            self.assertEqual(filled['coverage_fraction'],report['coverage_fraction'])
+            self.assertAlmostEqual(filled['inferred_fraction'],1-report['coverage_fraction'])
+            self.assertTrue(np.array_equal(filled_atlas[coverage>0],atlas[coverage>0]))
+            self.assertTrue(np.allclose(filled_atlas[32,48],[255,0,0],atol=2))
+            self.assertEqual(inferred[32,16],0)
+            self.assertEqual(inferred[32,48],255)
+            self.assertFalse(filled['neural_paint_used'])
             # A changed reference is rejected rather than painted silently.
             Image.new('RGBA',(64,64),(0,255,0,255)).save(prepared/'front.png')
             with self.assertRaisesRegex(ValueError,'integrity'):

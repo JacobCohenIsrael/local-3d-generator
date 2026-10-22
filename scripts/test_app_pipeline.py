@@ -14,6 +14,49 @@ from web_app import Workshop
 
 
 class PipelineTests(unittest.TestCase):
+    def test_estimated_color_mask_is_packaged_without_inflating_photo_coverage(self):
+        with tempfile.TemporaryDirectory(dir=app_pipeline.ROOT/'work') as directory:
+            root = Path(directory)
+            (root/'scripts').mkdir()
+            (root/'work').mkdir()
+            (root/'upstream.json').write_text('{}')
+            folder = root/'job'
+            folder.mkdir()
+            (folder/'job.json').write_text(json.dumps({'name':'filled','views':['front'],
+                'created_at':time.time(),'settings':{'quality':'balanced','planner':'preset',
+                    'max_attempts':1,'height':1.8,'triangles':50000,'texture':'photo_basecolor',
+                    'texture_fill':'nearest_surface'}}))
+            texture = {'mode':'photo_basecolor','status':'applied','coverage_fraction':.4,
+                'inferred_fraction':.6,'maps':{key:{} for key in ('basecolor','coverage','uvmask','inferred')}}
+            def fake_stage(job_folder,command,name,timeout,log_dir=None,env=None):
+                if name=='shape':
+                    target=Path(log_dir)
+                    (target/'raw.glb').write_bytes(b'raw')
+                    (target/'shape-report.json').write_text(json.dumps({'model':'test','quality_pass':True}))
+                elif name=='photo-bake':
+                    self.assertEqual(command[command.index('--fill')+1],'nearest_surface')
+                    (folder/'texture').mkdir()
+                    (folder/'texture/bake-report.json').write_text(json.dumps(texture))
+                elif name=='blender':
+                    self.assertIn('--texture-dir',command)
+                    (folder/'asset/textures').mkdir(parents=True)
+                    (folder/'asset/asset.fbx').write_bytes(b'fbx')
+                    (folder/'asset/export-report.json').write_text('{}')
+                    (folder/'asset/material-manifest.json').write_text(json.dumps(texture))
+                    for key in texture['maps']:
+                        (folder/f'asset/textures/{key}.png').write_bytes(key.encode())
+                with (folder/'stages.jsonl').open('a') as stream:
+                    stream.write(json.dumps({'owned_shutdown_confirmed':True})+'\n')
+            with patch.object(app_pipeline,'ROOT',root),patch.object(app_pipeline,'stage',side_effect=fake_stage), \
+                 patch.object(app_pipeline,'resources',return_value={'ram_available_bytes':16*2**30,'gpu_free_mib':15000}):
+                app_pipeline.run(folder)
+            import zipfile
+            with zipfile.ZipFile(folder/'asset/unity-package.zip') as archive:
+                self.assertEqual(archive.read('textures/inferred.png'),b'inferred')
+                packaged=json.loads(archive.read('generation-report.json'))
+                self.assertEqual(packaged['texture']['coverage_fraction'],.4)
+                self.assertEqual(packaged['texture']['inferred_fraction'],.6)
+
     def test_photo_failure_preserves_mesh_but_deadline_or_cancel_stops_export(self):
         for error in (app_pipeline.StageError('coverage failed'), TimeoutError('deadline'),
                       InterruptedError('cancelled')):

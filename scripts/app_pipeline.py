@@ -179,7 +179,8 @@ def run(folder):
             try:
                 stage(folder,[PYTHON,'-B','scripts/photo_bake.py','--job-dir',folder,
                     '--geometry',folder/'geometry/geometry.npz','--output-dir',folder/'texture',
-                    '--size',str(job['settings'].get('texture_size',1024))],'photo-bake',600)
+                    '--size',str(job['settings'].get('texture_size',1024)),
+                    '--fill',job['settings'].get('texture_fill','neutral')],'photo-bake',600)
                 texture = json.loads((folder/'texture/bake-report.json').read_text())
                 export_args += ['--texture-dir',folder/'texture']
             except StageError as error:
@@ -212,7 +213,9 @@ def run(folder):
             'When textures/ exists, keep it beside asset.fbx. In Unity create a material,\n'
             'assign textures/basecolor.png to Base Map/Albedo (sRGB), metallic 0, roughness 0.8\n'
             '(smoothness 0.2). These are assumed constants, not recovered physical properties.\n'
-            'coverage.png is a diagnostic mask, not an opacity map. Never use it as alpha.\n')
+            'coverage.png marks photo-observed color. inferred.png, when present, marks estimated\n'
+            'color extended from nearby surface samples, not recovered texture detail.\n'
+            'These are diagnostic masks, not opacity maps. Never use them as alpha.\n')
         with zipfile.ZipFile(folder / 'asset/unity-package.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
             for name in ('asset.fbx', 'UNITY_README.txt', 'export-report.json'):
                 archive.write(folder / 'asset' / name, name)
@@ -221,7 +224,7 @@ def run(folder):
                 archive.write(selection_path, 'view-selection.json')
             if report['textures']:
                 archive.write(folder/'asset/material-manifest.json','material-manifest.json')
-                for name in ('basecolor','coverage','uvmask'):
+                for name in ('basecolor','coverage','uvmask',*(['inferred'] if 'inferred' in texture['maps'] else [])):
                     archive.write(folder/f'asset/textures/{name}.png',f'textures/{name}.png')
         message = ('Textured FBX and Unity ZIP ready · inspect the photo coverage'
                    if report['textures'] else 'FBX ready · inspect the model before importing it into Unity')

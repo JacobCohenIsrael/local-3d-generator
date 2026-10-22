@@ -90,7 +90,7 @@ def texture_signature():
 def apply_texture(texture_dir, output):
     report = json.loads((texture_dir/'bake-report.json').read_text())
     (output/'textures').mkdir()
-    for name in ('basecolor','coverage','uvmask'):
+    for name in ('basecolor','coverage','uvmask',*(['inferred'] if 'inferred' in report['maps'] else [])):
         source = texture_dir/f'{name}.png'
         if hashlib.sha256(source.read_bytes()).hexdigest() != report['maps'][name]['sha256']:
             raise ValueError('Texture integrity check failed')

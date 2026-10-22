@@ -35,6 +35,7 @@ ASSETS = {'fbx': ('asset/asset.fbx', 'application/octet-stream'),
           'report': ('report.json', 'application/json'),
           'color': ('asset/textures/basecolor.png','image/png'),
           'coverage': ('asset/textures/coverage.png','image/png'),
+          'inferred': ('asset/textures/inferred.png','image/png'),
           'material': ('asset/material-manifest.json','application/json'),
           'selection': ('view-selection.json','application/json')}
 
@@ -52,9 +53,11 @@ def validate_request(data):
         'planner': settings.get('planner', 'preset'), 'max_attempts': settings.get('max_attempts', 2),
         'triangles': settings.get('triangles', 50000), 'height': settings.get('height', 1.8),
         'allow_flat': settings.get('allow_flat', False),
-        'texture': settings.get('texture','none'), 'texture_size':settings.get('texture_size',1024)}
+        'texture': settings.get('texture','none'), 'texture_size':settings.get('texture_size',1024),
+        'texture_fill':settings.get('texture_fill','neutral')}
     for key, values in {'quality': ('balanced', 'detailed'), 'background': ('object', 'person', 'keep'),
-                        'planner': ('preset', 'strata'), 'texture':('none','photo_basecolor')}.items():
+                        'planner': ('preset', 'strata'), 'texture':('none','photo_basecolor'),
+                        'texture_fill':('neutral','nearest_surface')}.items():
         if settings[key] not in values:
             raise ValueError(f'Invalid {key}')
     if type(settings['texture_size']) is not int or settings['texture_size'] not in (512,1024):

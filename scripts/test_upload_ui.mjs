@@ -4,7 +4,7 @@ const nodes=new Map();
 function node(tag='div'){return {tagName:tag.toUpperCase(),children:[],dataset:{},classList:{add(){},remove(){}},value:'',hidden:false,disabled:false,append(...children){this.children.push(...children);},replaceChildren(...children){this.children=children;},setAttribute(){},focus(){},scrollIntoView(){},querySelector(){return node();}};}
 const get=id=>{if(!nodes.has(id))nodes.set(id,node());return nodes.get(id);};
 const document={getElementById:get,createElement:node,createTextNode:text=>({textContent:text}),querySelector:()=>({content:'test-token'})};
-for(const [id,value] of Object.entries({name:'Drop test',quality:'balanced',background:'keep','texture-mode':'photo_basecolor',planner:'preset',attempts:'1',triangles:'50000',height:'1.8'}))get(id).value=value;
+for(const [id,value] of Object.entries({name:'Drop test',quality:'balanced',background:'keep','texture-mode':'photo_basecolor','texture-fill':'nearest_surface',planner:'preset',attempts:'1',triangles:'50000',height:'1.8'}))get(id).value=value;
 let submitted;
 const fetch=async (url,options)=>{if(options){submitted=JSON.parse(options.body);return {ok:true,json:async()=>({id:'test'})};}return {ok:true,json:async()=>[]};};
 class FileReader{readAsDataURL(){this.result='data:image/png;base64,TEST';this.onload();}}
@@ -27,6 +27,7 @@ assert.equal(submitted.extra_views.length,2);
 assert.equal(submitted.extra_views.some(x=>'azimuth' in x),false);
 assert.equal(submitted.settings.texture,'photo_basecolor');
 assert.equal(submitted.settings.texture_size,1024);
+assert.equal(submitted.settings.texture_fill,'nearest_surface');
 get('extra-list').children[0].children[2].onclick();
 assert.equal(get('extra-list').children.length,1);
 get('extra-drop').ondrop({preventDefault(){},dataTransfer:{files:[{name:'bad.txt',size:1,type:'text/plain'}]}});

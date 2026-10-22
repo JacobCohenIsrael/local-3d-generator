@@ -2,6 +2,13 @@
 
 ## Objective and current scope
 
+The owner requests improved color baking for small pixel-art references. Broader
+bounded camera fitting and source-resolution-independent visibility are allowed.
+Optional nearest-surface color extension must be labelled as estimated, retain
+a separate inferred mask, preserve observed colors, and never inflate photo
+coverage. Neutral gray remains the default for unknown surfaces. Preserve old
+jobs and reuse existing geometry for color-only comparisons.
+
 The owner now authorizes coordination between the texture and extra-photo
 branches, resolving conflicts, committing/pushing their combined result to main,
 and updating the primary local app for a manual test. This supersedes the earlier

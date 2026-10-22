@@ -27,6 +27,13 @@ export-report.json
 UNITY_README.txt
 ```
 
+Optionally choose **Unseen surface colors > Extend nearby colors · estimated**.
+Unknown texels then copy color from the nearest observed position on the 3D
+surface. This avoids solid gray patches but does not recover missing detail.
+The ZIP adds `textures/inferred.png`, and reports show photo coverage and
+estimated coverage separately. Observed texels are unchanged; `coverage.png`
+never includes estimated pixels. **Neutral gray** remains the default.
+
 Create a material for the Unity render pipeline and assign `basecolor.png` to
 Base Map/Albedo with sRGB enabled. Metallic 0 and roughness 0.8 (smoothness 0.2)
 are assumed constants. The base color is opaque RGB. Coverage is a diagnostic
@@ -41,7 +48,7 @@ preview embeds it. FBX alone needs its external PNG.
    Project. Geometry and UVs are frozen in a prepared `.blend` and numeric NPZ.
 3. A separate CPU process checks prepared-photo hashes and fits each cardinal
    orthographic camera to the foreground silhouette. Elevation is searched at
-   0, 10 and 20 degrees, with bounded scale/translation adjustments. Level views
+   0 through 60 degrees in ten-degree steps, with bounded scale/translation adjustments. Level views
    are preferred: a 10-degree tilt must improve IoU by more than 0.02 to win.
    This avoids tilting fine details for a negligible silhouette improvement. Fits below
    0.40 silhouette IoU are rejected; this score does not establish feature alignment.
@@ -50,7 +57,11 @@ preview embeds it. FBX alone needs its external PNG.
    the highest-confidence visible source per texel. Do not average displaced
    eyes/edges from different photos into ghost details. Texture sampling uses
    linear RGB, then stores the chosen color as sRGB.
-5. Unknown surface texels receive neutral gray. Only gutters outside UV islands
+   The visibility buffer always has a 512-pixel longest side, even for tiny
+   sprites; this refines geometry visibility without inventing image detail.
+5. Unknown surface texels receive neutral gray by default. Optional nearest-surface
+   color extension is explicitly estimated and has a separate diagnostic mask.
+   Only gutters outside UV islands
    receive up to four pixels of padding. Diagnostic masks distinguish UV
    coverage and trusted photo samples. At least 20% UV-texel coverage is required.
 6. Apply the material, export, then independently reopen the FBX and verify its
@@ -62,7 +73,8 @@ intrinsic-image decomposition or neural painting. Perspective, inconsistent
 poses, shadows, reflections and inaccurate geometry can leave seams or misplaced
 features. A good silhouette fit can still put a facial feature in the wrong
 place. Use clean cutouts, similar camera distance and the same pose in every view.
-Unseen surfaces stay gray; no invented back view or inpainting is hidden in coverage.
+Unseen surfaces stay gray unless estimated color extension is selected. No inferred
+color is hidden in photo coverage; no neural texture generation is performed.
 
 Coverage is **covered UV surface texels / all UV surface texels**, not physical
 area, similarity or game readiness. Inspect both the textured and wireframe
@@ -75,6 +87,9 @@ The UI uses 1024-pixel maps. The API accepts `texture: "photo_basecolor"` with
 `texture_size: 512` or `1024`; missing `texture` preserves the older untextured
 API behavior. `texture: "none"` skips this path. No new neural weights, CUDA
 extensions or Python dependencies are needed beyond the existing installation.
+`texture_fill` accepts `"neutral"` (default) or `"nearest_surface"`. The latter
+can improve color continuity on sparse references, but its unobserved detail
+remains unknown and its diagnostic masks must not be used as opacity.
 
 UV preparation, photo baking and export have separate owned process trees and
 deadlines (300, 600 and 300 seconds), within the existing 3600-second job limit.
@@ -102,7 +117,15 @@ visible limitations; passing file checks does not establish likeness. All
 
 Combined integration adds a regression where only front was labelled, an extra
 replaces it, and another extra fills back. The bake must use both selected files
-and preserve their source IDs. The combined suite has 40 passing tests.
+and preserve their source IDs. The suite now has 44 passing tests, including
+tiny sloped-surface visibility, occlusion rejection, elevated cameras, preserved
+observed colors, unchanged photo coverage during extension and inferred-mask ZIPs.
+
+The small-sprite regression reused one existing 25,000-triangle mesh. Photo
+coverage rose from 30.0% to 46.4%; optional color extension covered the remaining
+53.6% as estimates. Exported bounds/counts and raw/prepared geometry hashes were
+unchanged, and a relocated textured FBX import passed. The earlier character
+demo retained 75.7% photo coverage and its level front-camera fit.
 
 Run the regression suite without loading GPU models:
 

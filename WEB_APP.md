@@ -59,7 +59,9 @@ With photo color enabled, Blender freezes the final geometry and unwraps UVs
 before a separate CPU worker fits the labelled views. Visibility checks reject
 hidden/back-facing samples. Each texel uses the highest-confidence visible
 source, rather than averaging misaligned photo details. Unknown surface texels
-remain neutral gray. The UI/report show UV-texel coverage, fit warnings and
+remain neutral gray by default. Optional **Extend nearby colors · estimated**
+uses nearest observed 3D surface colors for unknown texels and adds an inferred
+mask. Photo coverage stays unchanged. The UI/report show these fractions, fit warnings and
 texture hashes. This is approximate cardinal camera fitting, not a measured
 camera solve. Seams and feature-placement errors remain possible.
 
@@ -140,7 +142,7 @@ Photo-color verification adds depth occlusion, cardinal camera handedness,
 degenerate UV handling, unseen-surface neutrality, reference hash checks,
 competing photo colors, bounded texture settings, bake-failure fallback and
 deadline/cancellation propagation. A real color demo and relocated ZIP check
-are recorded in [PHOTO_BAKING.md](docs/PHOTO_BAKING.md). All 40 regression checks
+are recorded in [PHOTO_BAKING.md](docs/PHOTO_BAKING.md). All 44 regression checks
 passed. The corrected color demo completed in 177 seconds with 75.7% UV-texel
 coverage and a 50,000-triangle FBX; browser color/clay/wireframe controls and the
 ZIP download were exercised. Unity Editor import

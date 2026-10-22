@@ -1,6 +1,7 @@
 """CPU orthographic photo projection and visibility-aware UV rasterization."""
 import numpy as np
 from scipy import ndimage
+from scipy.spatial import cKDTree
 
 AZIMUTHS = {'front': 0, 'left': 90, 'back': 180, 'right': 270}
 
@@ -53,7 +54,7 @@ def project(vertices, camera, resolution_scale=1):
     return np.column_stack([xy*resolution_scale, vertices@direction])
 
 
-def fit_camera(vertices, faces, alpha, view, elevations=(0,10,20)):
+def fit_camera(vertices, faces, alpha, view, elevations=(0,10,20,30,40,50,60)):
     """Fit cardinal orthographic silhouette; scores do not establish calibration."""
     height, width = alpha.shape
     fy, fx = np.nonzero(alpha > .5)
@@ -129,7 +130,10 @@ def sample_view(points, normals, vertices, faces, rgba, camera):
     height, width = rgba.shape[:2]
     coordinates = project(points, camera)
     x, y, z = coordinates.T
-    ratio = min(1., 512/max(height, width))
+    # Visibility is a geometry calculation. A tiny sprite must not reduce its
+    # depth buffer to a few dozen pixels and reject valid sloped surfaces.
+    # Color is still sampled from the original pixels below.
+    ratio = 512/max(height, width)
     rw, rh = max(1, round(width*ratio)), max(1, round(height*ratio))
     depth = depth_buffer(project(vertices, camera, ratio), faces, rw, rh)
     ix = np.clip((x*ratio).astype(int), 0, rw-1)
@@ -145,3 +149,19 @@ def sample_view(points, normals, vertices, faces, rgba, camera):
     rgb = np.column_stack([ndimage.map_coordinates(srgb_to_linear(rgba[:, :, channel]),
         [y-.5, x-.5], order=1, mode='constant', cval=0) for channel in range(3)])
     return rgb, weight
+
+
+def extend_surface_colors(points, colors, covered):
+    """Estimate unknown colors from nearest observed 3D surface positions.
+
+    No UV-space dilation across unrelated islands; observed pixels stay exact.
+    This extrapolates color only, and must never increase measured photo coverage.
+    """
+    if not covered.any():
+        raise ValueError('Color extension needs observed surface samples')
+    result = colors.copy()
+    unknown = ~covered
+    if unknown.any():
+        _, nearest = cKDTree(points[covered]).query(points[unknown],workers=1)
+        result[unknown] = colors[covered][nearest]
+    return result

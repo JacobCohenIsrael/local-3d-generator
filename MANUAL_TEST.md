@@ -24,6 +24,9 @@ Its 76.7% UV-texel color coverage includes an automatically selected extra photo
 4. Click **Select views & generate**. Extra photos trigger Strata vision even
    with preset planning. It stops before Hunyuan loads, then Blender prepares
    UVs, bakes photo colors and exports the files automatically.
+   For sparse sprites, optionally choose **Unseen surface colors > Extend nearby
+   colors · estimated** before generating. Photo and estimated coverage remain
+   separate; the latter is not recovered texture detail.
 
 ## Review
 
@@ -33,7 +36,8 @@ Its 76.7% UV-texel color coverage includes an automatically selected extra photo
   they are not all fused together. Top/bottom views are not selected.
 - Drag to rotate and scroll to zoom. Use **Hide colors / Show colors** to
   distinguish mesh defects from projection errors, and **Wireframe** for density.
-- Review coverage. Unobserved surface texels stay gray. This is UV-texel coverage,
+- Review coverage. Unobserved surface texels stay gray unless estimated extension
+  is selected. Photo coverage never includes the extension. This is UV-texel coverage,
   not likeness or physical surface area. Seams and misplaced details can remain.
 - A warned untextured result means baking failed; inspect the report. Failed
   vision/generation processes stop without automatically restarting inference.
