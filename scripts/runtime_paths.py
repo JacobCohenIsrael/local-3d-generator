@@ -4,6 +4,11 @@ from pathlib import Path
 import shutil
 
 
+def asset_root():
+    """Allow an isolated worktree to reuse an existing model/source cache read-only."""
+    return Path(os.environ.get('LOCAL3D_ASSET_ROOT', Path(__file__).resolve().parents[1]))
+
+
 def blender_executable():
     override = os.environ.get('LOCAL3D_BLENDER')
     if override:

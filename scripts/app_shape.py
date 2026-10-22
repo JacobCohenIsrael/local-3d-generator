@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 import time
 from app_views import conditioned_views, candidates_for
+from runtime_paths import asset_root
 
 ROOT = Path(__file__).resolve().parents[1]
 os.environ.update(HF_HOME=str(ROOT / 'work/huggingface'), HF_HUB_OFFLINE='1',
@@ -26,13 +27,13 @@ def main():
     import numpy as np
     from PIL import Image
     if multi:
-        sys.path.insert(0, str(ROOT / 'work/vendor/Hunyuan3D-2'))
+        sys.path.insert(0, str(asset_root() / 'work/vendor/Hunyuan3D-2'))
         from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
-        model_path, subfolder = ROOT / 'models/hunyuan3d-2mv', 'hunyuan3d-dit-v2-mv'
+        model_path, subfolder = asset_root() / 'models/hunyuan3d-2mv', 'hunyuan3d-dit-v2-mv'
     else:
-        sys.path.insert(0, str(ROOT / 'work/vendor/Hunyuan3D-2.1/hy3dshape'))
+        sys.path.insert(0, str(asset_root() / 'work/vendor/Hunyuan3D-2.1/hy3dshape'))
         from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
-        model_path, subfolder = ROOT / 'models/hunyuan3d-2.1', 'hunyuan3d-dit-v2-1'
+        model_path, subfolder = asset_root() / 'models/hunyuan3d-2.1', 'hunyuan3d-dit-v2-1'
     started = time.monotonic()
     torch.cuda.reset_peak_memory_stats()
     # Use upstream FP32 module construction for this smaller multiview checkpoint.

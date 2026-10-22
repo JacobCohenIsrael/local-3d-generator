@@ -16,7 +16,7 @@ from controller import ROOT, resources, save
 from native_process import OwnedProcess
 from strata_plan import validate_plan
 from runtime_paths import blender_executable
-from app_views import conditioned_views, candidates_for
+from app_views import conditioned_views, candidates_for, HYBRID_STRATEGY, DIRECTIONS
 
 PYTHON = Path(sys.executable)
 BLENDER = blender_executable()
@@ -41,6 +41,8 @@ def stage(folder, command, name, timeout, log_dir=None, env=None):
         sample.update(stage=name, elapsed_seconds=elapsed, pid=pid)
         with (folder / 'telemetry.jsonl').open('a') as stream:
             stream.write(json.dumps(sample) + '\n')
+        if name == 'vision' and sample['ram_available_bytes'] < 2 * 2**30:
+            raise MemoryError('Strata vision stopped because less than 2 GiB system RAM remained; no restart attempted')
     try:
         code = owned.wait(timeout, observe=observe, cancel=folder / 'CANCEL')
         record['exit_code'] = code
@@ -125,6 +127,19 @@ def run(folder):
             raise RuntimeError('Less than 10 GB GPU memory free. Close other GPU workloads and submit again.')
         progress(folder, 'preparing', 'Isolating the subject in each uploaded view')
         stage(folder, [PYTHON, '-B', 'scripts/app_images.py', '--job-dir', folder], 'cutouts', 240)
+        if job.get('view_strategy') == HYBRID_STRATEGY and any(c['id'] not in DIRECTIONS for c in candidates_for(job)):
+            config = ROOT / 'work/strata-vision.json'
+            if not config.is_file():
+                raise RuntimeError('Extra-photo recognition needs Strata vision. Run scripts/setup_strata_vision.py first.')
+            progress(folder, 'selecting', 'Comparing extra photos with your labelled reference views')
+            before_vision = resources()
+            stage(folder, [PYTHON, '-B', 'scripts/strata_select.py', '--job-dir', folder,
+                           '--config', config], 'vision', 900)
+            after_vision = resources()
+            if after_vision.get('gpu_used_mib', float('inf')) > before_vision.get('gpu_used_mib', 0) + 512:
+                raise RuntimeError('Strata vision GPU allocation was not released; stopped before shape loading')
+            if after_vision['ram_available_bytes'] < 8 * 2**30 or after_vision.get('gpu_free_mib', 0) < 10000:
+                raise RuntimeError('Insufficient available RAM/VRAM after photo analysis; stopped before shape loading')
         selected_views = conditioned_views(folder, job)
         selection_path = folder / 'view-selection.json'
         selection = json.loads(selection_path.read_text(encoding='utf-8')) if selection_path.exists() else None

@@ -7,17 +7,45 @@ import unittest
 from unittest.mock import patch
 
 import app_pipeline
-from app_images import prepare_job
-from app_views import conditioned_views
-from test_app_views import request
+from app_images import prepare_job, finalize_job
+from app_views import conditioned_views, select_hybrid
+from test_app_views import request, observation
 from web_app import Workshop
 
 
 class PipelineTests(unittest.TestCase):
+    def test_vision_failure_stops_before_shape_without_retry(self):
+        with tempfile.TemporaryDirectory(dir=app_pipeline.ROOT / 'work') as directory:
+            root = Path(directory)
+            (root / 'scripts').mkdir()
+            (root / 'work').mkdir()
+            (root / 'work/strata-vision.json').write_text('{}')
+            app = Workshop(root)
+            folder = app.jobs / app.create(request())
+            seen = []
+            def failing_stage(job_folder, command, name, timeout, **kwargs):
+                seen.append(name)
+                if name == 'cutouts':
+                    prepare_job(folder)
+                elif name == 'vision':
+                    raise RuntimeError('Vision engine stopped')
+                else:
+                    self.fail('Generation must not begin after a failed vision stage')
+            with patch.object(app_pipeline, 'ROOT', root), patch.object(app_pipeline, 'stage', side_effect=failing_stage), \
+                 patch.object(app_pipeline, 'resources', return_value={'ram_available_bytes':16*2**30,
+                     'gpu_free_mib':15000, 'gpu_used_mib':1000}):
+                with self.assertRaisesRegex(RuntimeError, 'Vision engine stopped'):
+                    app_pipeline.run(folder)
+            self.assertEqual(seen, ['cutouts', 'vision'])
+            self.assertFalse((root / 'work/controller.lock').exists())
+            self.assertTrue((folder / 'prepared-records.json').exists())
+
     def test_extra_candidates_report_only_conditioned_views_and_zip_has_audit(self):
         with tempfile.TemporaryDirectory(dir=app_pipeline.ROOT / 'work') as directory:
             root = Path(directory)
             (root / 'scripts').mkdir()
+            (root / 'work').mkdir()
+            (root / 'work/strata-vision.json').write_text('{}')
             (root / 'upstream.json').write_text('{}')
             app = Workshop(root)
             data = request()
@@ -28,6 +56,10 @@ class PipelineTests(unittest.TestCase):
             def fake_stage(job_folder, command, name, timeout, log_dir=None, env=None):
                 if name == 'cutouts':
                     prepare_job(folder)
+                elif name == 'vision':
+                    records = json.loads((folder / 'prepared-records.json').read_text())
+                    finalize_job(folder, records, select_hybrid(records,
+                        {'extra-01':observation(), 'extra-02':observation('unknown', confidence=.4)}))
                 elif name == 'shape':
                     job = json.loads((folder / 'job.json').read_text())
                     shape_inputs.extend(conditioned_views(folder, job))
@@ -43,7 +75,7 @@ class PipelineTests(unittest.TestCase):
                 with (folder / 'stages.jsonl').open('a') as stream:
                     stream.write(json.dumps({'owned_shutdown_confirmed':True})+'\n')
             with patch.object(app_pipeline,'ROOT',root), patch.object(app_pipeline,'stage',side_effect=fake_stage), \
-                 patch.object(app_pipeline,'resources',return_value={'ram_available_bytes':16*2**30,'gpu_free_mib':15000}):
+                 patch.object(app_pipeline,'resources',return_value={'ram_available_bytes':16*2**30,'gpu_free_mib':15000,'gpu_used_mib':1000}):
                 app_pipeline.run(folder)
             report = json.loads((folder/'report.json').read_text())
             self.assertEqual(shape_inputs,['front','left','back','right'])

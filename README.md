@@ -8,9 +8,9 @@ jobs run without Codex or an open browser tab.
 - **One image:** Hunyuan3D-2.1.
 - **Two to four selected views:** the separate Hunyuan3D-2mv model conditions on
   the supported front/left/back/right directions.
-- **More photos:** upload up to 16 candidates. CPU selection chooses at most four
-  model inputs and reports every selected/unselected photo; this is not all-angle
-  fusion. See [MORE_ANGLES.md](MORE_ANGLES.md) for exact limits.
+- **More photos:** drop up to 16 photos total without angle numbers. Local Strata
+  vision compares extras with your labelled references; conservative selection
+  chooses at most four inputs and explains every choice. See [MORE_ANGLES.md](MORE_ANGLES.md).
 - **Downloads:** FBX, Unity ZIP, Blender project and generation report.
 - **Local processing:** uploads, models, job history and generated assets stay on
   your machine. Installation downloads dependencies and model files once.
@@ -61,7 +61,8 @@ generation are not verified.
 
 Python 3.10.22 is installed by the setup script into this project. A separate
 Python installation, Node.js, Docker, Codex and Strata are not required for the
-default web-app workflow. After installing Git/uv, reopen PowerShell so PATH
+labelled-photo preset workflow. Extra-photo recognition requires Strata as
+described below. After installing Git/uv, reopen PowerShell so PATH
 changes take effect.
 
 ## Install
@@ -132,11 +133,12 @@ app's **Cancel generation** button when you only want to stop a job.
    image, then optionally add **left**, **back** and **right** views of the same
    subject. Supported files are JPEG, PNG and WebP, up to 12 MB and 20 megapixels
    each, with a minimum width/height of 64 pixels.
-   For alternates, choose **Add photos** and enter each photo's camera angle.
-   The combined limit is 16 photos / 48 MiB. **Select views & generate** chooses
-   at most four inputs; the job's selection panel explains every choice. Diagonal
-   photos outside the documented selection window and top/bottom views are not
-   conditioned by this checkpoint.
+   Drag additional photos into **Drop extra photos here**, or choose **Browse
+   photos**. No angle numbers are required. Extras require the Strata vision setup
+   below. The combined limit is 16 photos / 48 MiB. **Select views & generate**
+   compares extras with your labelled references, keeps strong anchors, fills
+   missing directions, and skips uncertain photos automatically. The selection
+   panel explains every choice. Top/bottom views are not selected.
 3. Keep the subject's pose, framing, lighting and camera distance consistent
    across views. Include the whole subject and avoid other people/objects in
    frame. More angles can help constrain shape but do not guarantee likeness.
@@ -177,9 +179,10 @@ retopology. A reduced triangle count alone does not establish game readiness.
 
 ## Optional Strata planning
 
-Strata is an optional language-model runtime for choosing bounded generation
-settings from image metadata; it does not run Hunyuan3D or inspect the photos.
-The default preset is simpler and uses less host memory.
+The **settings planner** optionally uses Strata to choose bounded settings from
+metadata. It is separate from **photo recognition**, which uses Strata vision
+whenever unlabelled extras are submitted. Labelled references alone work with
+the preset and need no Strata installation. Strata does not run Hunyuan3D itself.
 
 To enable it, first provide a compatible native Strata installation, model pack,
 tokenizer, and existing base configuration. Then prepare the project-owned config:
@@ -199,6 +202,38 @@ for arbitrary models. See
 [NATIVE_SETUP.md](NATIVE_SETUP.md) before adapting it to another installation.
 Earlier Strata runs nearly exhausted the tested host's RAM, so the preset is
 the recommended starting option.
+
+### Enable automatic recognition of extra photos
+
+After preparing `work/strata-native.json`, run:
+
+```powershell
+.\.venv\Scripts\python.exe -B scripts/setup_strata_vision.py --base-config .\work\strata-native.json
+```
+
+This downloads and SHA-256 verifies the matching **907 MB** BF16 vision encoder
+at a pinned revision, and writes `work/strata-vision.json`. It preserves the base
+config and shared installation. The installed Strata 0.1.41 engine and
+`strata-vision.exe` helper plus the existing Qwen Coder IQ1_M pack are required;
+this command does not install or upgrade Strata. Encoder terms remain upstream.
+Use `--cpu` to put the encoder on CPU; that option has not been measured here.
+
+Recognition starts only for extras, compares each usable photo with the labelled
+anchors, then stops its owned engine and encoder before mesh generation. It needs
+at least 12 GiB available RAM to start and stops if available RAM drops below
+2 GiB. The entire recognition stage is capped at 15 minutes (900 seconds total).
+There are no automatic inference retries. Invalid/uncertain observations skip
+that photo; engine failures stop the job and preserve diagnostics. Generation
+rechecks available RAM/VRAM after recognition. Model-reported confidence is not
+a calibrated probability and visual classification may be wrong.
+
+For an isolated worktree, `LOCAL3D_ASSET_ROOT` may point to another checkout's
+already installed `models/` and `work/vendor/` caches. These are read only;
+uploads, configs, outputs and logs still belong to the current checkout. Run
+with that cache's compatible Python interpreter if this worktree has no `.venv`.
+The launcher accepts `LOCAL3D_PYTHON` for that interpreter and `-Port 8767` to run
+an isolated checkout alongside the primary app. Set both local environment
+overrides before launching; no global configuration change is required.
 
 ## Troubleshooting
 

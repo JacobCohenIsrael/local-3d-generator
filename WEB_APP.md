@@ -12,8 +12,9 @@ task or automatic Windows startup entry is installed.
    JPEG, PNG and WebP are accepted, up to 12 MB and 20 megapixels per image.
    Keep pose, framing, lighting and distance consistent. Transparent PNGs work
    best; otherwise choose automatic background removal for objects or people.
-   **Add photos** accepts extra candidates up to 16 total / 48 MiB combined.
-   Enter their azimuths; CPU selection chooses at most four supported inputs.
+   Drop unlabelled extras or browse for several at once, up to 16 total / 48 MiB.
+   Strata vision compares extras with trusted anchors; no angle entry is needed.
+   Conservative selection chooses at most four supported inputs.
    The job shows all selected/unselected photos and reasons. See MORE_ANGLES.md.
 2. Name the asset, choose quality, height in meters and a triangle budget.
 3. Click Generate. The local queue runs one job at a time. Inspect the cutouts
@@ -29,10 +30,11 @@ processor. Every photo has a selection reason and remains saved. This is
 candidate selection, not fusion of every angle, and not calibrated
 photogrammetry; extra views do not guarantee correct faces, hands or backs.
 
-The default preset avoids loading the large Strata language model, which came
-close to exhausting host RAM in earlier tests. Advanced options can use Strata
-to choose settings from metadata; it does not have photo vision. Either option
-runs autonomously. Nothing depends on Codex messages or approvals at job time.
+With labelled references alone, the preset avoids loading Strata. Unlabelled
+extras automatically trigger local Strata vision under a separate project-owned
+configuration. Advanced options independently allow Strata settings planning
+from metadata. All stages run autonomously without Codex messages or approvals
+at job time. See MORE_ANGLES.md for recognition setup and conservative thresholds.
 
 ## Automatic processing
 
@@ -60,12 +62,17 @@ animation topology.
 - Closing a browser tab leaves the app/worker running. App restart retains
   finished results and pending jobs; an in-flight job is marked interrupted,
   not secretly rerun. Cancellation closes the owned Windows process tree.
-- At most 10 queued/running jobs. Preparation 240 seconds, optional Strata
-  600 seconds, each shape attempt 1,200 seconds, Blender 300 seconds and overall
+- At most 10 queued/running jobs. Preparation 240 seconds, photo recognition
+  900 seconds, optional Strata settings planning 600 seconds, each shape attempt
+  1,200 seconds, Blender 300 seconds and overall
   job 3,600 seconds. Jobs stop if a deadline, cancellation or process error occurs.
 - At least 8 GiB free system RAM and 10,000 MiB free GPU memory are required at
   job start. These checks are floors, not guarantees of memory fit. Work is
   sequential and existing hardware protections remain unchanged.
+- Vision requires 12 GiB available RAM before loading and stops below 2 GiB.
+  Its engine and encoder stop before Hunyuan loads; available RAM/VRAM are checked
+  again. Invalid or uncertain observations skip that photo. Engine failures stop
+  the job with retained diagnostics, without automatic restart.
 - Loopback binding only, checked Host/Origin, per-launch request token, fixed
   download paths and image size/format validation. The app is intended for
   this one machine; it is not a publicly hosted or multi-user service.
@@ -98,7 +105,7 @@ counts and world bounds. The browser
 loaded the resulting GLB without console errors and rendered the interactive
 mesh. The FBX and Unity ZIP download endpoints were checked separately.
 
-Eleven automated checks cover process ownership, bounded second-seed behavior,
+The original automated checks covered process ownership, bounded second-seed behavior,
 queue persistence, interrupted-job recovery, queued/running cancellation,
 no crash restart, invalid uploads/settings, Host/Origin/token checks and file
 path boundaries. Browser checks also exercised selecting a local image,
@@ -108,8 +115,18 @@ An earlier test exposed one duplicate triangle after decimation; validation
 now removes invalid/duplicate faces before recording the expected export.
 Its failed result remains preserved. A repair check passed on the same raw
 mesh before the final end-to-end run. Actual Unity Editor import and the
-optional Strata path through this new app were not part of the final live test;
+optional Strata settings-planning path through this app were not part of that live test;
 the original CLI Strata path was tested in FIRST_RUN.md.
+
+The hybrid workflow has additionally completed a browser-submitted native run:
+one front anchor plus unlabelled left/back and duplicate-front extras. Strata
+vision selected three directions, Hunyuan3D-2mv produced geometry, and Blender
+exported/reopened a 50,000-triangle FBX at 1.8 meters. The live FBX/ZIP/selection
+downloads matched on-disk exports and the packaged audit. The browser rendered
+the mesh and full selection reasons without console errors. A separate six-photo
+real vision check preserved supplied anchors and rejected a mismatched character.
+These are example checks, not an accuracy benchmark. Unity Editor import remains
+unverified. See MORE_ANGLES.md for setup and exact selection behavior.
 
 Host-specific paths, hardware inventories, activity timestamps and detailed
 resource observations remain in ignored local reports rather than public files.

@@ -1,118 +1,141 @@
-# Extra photos: candidate selection with a four-view model
+# Hybrid photo selection with a four-view model
 
-This worktree accepts **up to 16 photos per job**, including alternate and nearby
-angles, while keeping the current inference checkpoint unchanged. It prepares
-and evaluates every photo, selects at most one suitable image near each of four
-supported directions, and records the outcome for every input.
+Upload one required **front** photo, optional labelled **left/back/right** anchors,
+and extra photos by dragging a group into the drop zone or browsing. No angle
+numbers are required. Up to 16 photos total / 48 MiB combined are supported.
 
-**This is view selection, not conditioning on every photo and not all-angle
-mesh fusion.** A larger upload set does not increase the number of images passed
-to Hunyuan3D-2mv. It can offer clearer or better-aligned candidates to choose
-from, but improvement in reconstruction quality has not been benchmarked.
+Strata vision compares each usable extra with the labelled anchors. The app
+uses its strictly validated observations plus deterministic clarity metrics to
+select at most four compatible inputs. Every original and cutout is retained,
+and every photo receives a selected/skipped reason.
 
-## Why this boundary exists
+**Only selected photos condition Hunyuan.** This is candidate selection; it does
+not fuse every upload. Reconstruction quality gains have not been benchmarked.
 
-The pinned Tencent implementation uses `front`, `left`, `back`, and `right` in
-`MVImageProcessorV2`. Its `DinoImageEncoderMV` defaults to `view_num=4` and constructs
-four sinusoidal direction embeddings. Those are fixed view indices, not an
-arbitrary camera-pose interface. Passing a new label is unsupported, and changing
-the embedding count would not establish that the checkpoint works with new
-directions or that it fits the existing resource budget.
+## Setup
 
-Primary sources at the pinned revision:
+The existing Strata 0.1.41 / Qwen Coder IQ1_M installation and matching
+`strata-vision.exe` helper are required. Prepare the ordinary project config as
+described in README, then run:
 
-- [View-label mapping](https://github.com/Tencent-Hunyuan/Hunyuan3D-2/blob/f8db63096c8282cb27354314d896feba5ba6ff8a/hy3dgen/shapegen/preprocessors.py)
-- [Four-view conditioner](https://github.com/Tencent-Hunyuan/Hunyuan3D-2/blob/f8db63096c8282cb27354314d896feba5ba6ff8a/hy3dgen/shapegen/models/conditioner.py)
-- [Official model usage](https://huggingface.co/tencent/Hunyuan3D-2mv)
+```powershell
+.\.venv\Scripts\python.exe -B scripts/setup_strata_vision.py --base-config .\work\strata-native.json
+```
 
-## Use the extra-photo workflow
+This downloads the 907,543,008-byte BF16 encoder into `models/strata-vision/`,
+verifies SHA-256, and creates the ignored project-owned `work/strata-vision.json`.
+The original config and shared installation are preserved. No engine upgrade or
+inference occurs during setup. The encoder remains under its upstream terms.
 
-1. Add a front image and any available cardinal views in the existing slots.
-2. Choose **Add photos** for alternates. Multiple file selection is supported.
-3. Set each extra photo's camera azimuth: front **0°**, left **90°**, back **180°**,
-   right **270°**, with intermediate angles entered as numbers. Keep camera
-   height and the subject's pose consistent. No camera angle is inferred from
-   filenames or image contents.
-4. Submit with **Select views & generate**. Normal background preparation runs
-   on all photos, followed by deterministic CPU selection.
-5. Open the job's **selected / submitted photos** panel. It identifies each
-   selected image and gives a reason for every retained image not conditioned.
-   The selection JSON is downloadable even before generation completes or if
-   the job subsequently fails.
+Encoder source: [ISTA-DASLab model repository](https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/tree/ed59f92082b1e93c0e96d60a8b11aab089b52f09).
+Revision: `ed59f92082b1e93c0e96d60a8b11aab089b52f09`.
+SHA-256: `b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0`.
 
-The backend still requires an uploaded front slot. If it has no usable
-foreground, an eligible extra front candidate may replace it; otherwise the job
-fails before loading a shape model. Duplicate image bytes are not treated as a
-different camera view. Existing four-slot clients and legacy stored jobs remain
-supported.
+The vision config uses GPU encoding, a small explicit resident expert RAM budget,
+direct expert reads, bounded prompt batches and mapped-page release. These
+settings reduce host memory pressure; they can increase disk reads and latency.
+`--cpu` configures CPU encoding but is not part of the live validation.
 
-## Selection rules and limits
+## Automatic decisions
 
-- At most **16 total images**, **12 MiB each**, **48 MiB combined**; existing
-  format, dimension and HTTP-body limits remain in place. Preparation is still
-  sequential under its existing deadline and cancellation boundary.
-- Each candidate is assigned to its nearest cardinal direction. Only candidates
-  within **30°** are eligible. This is a conservative selection heuristic, not
-  a calibrated camera model or a quality guarantee. A 45° diagonal lies outside
-  that window. Top/bottom/elevation views have no supported model slot.
-- Scores combine standardized foreground sharpness, image size, exposure and
-  angular distance. Angle accuracy matters, but a sharper nearby photo may win.
-  Equal scores prefer the original cardinal slot, then a stable identifier.
-- Selection cannot judge correct identity, matching pose, missing limbs,
-  semantic framing or eventual 3D fidelity. Inspect the cutouts and selection.
-- Only selected images are copied to the canonical model inputs. A one-view
-  selection uses the existing single-image model; two to four use 2mv. More
-  candidates do not add inference passes or change the two-attempt retry cap.
-- Originals are retained in `uploads/`, all usable cutouts in
-  `prepared/candidates/`, and the audit in `view-selection.json` inside the
-  ignored job folder. Reports and the Unity ZIP include the selection audit.
-- `submitted_view_count` counts all photos. `views_used` counts only model
-  inputs. The API/UI never label a retained-but-unconditioned photo as used by
-  the shape checkpoint.
+- The front photo is required and must contain usable foreground. It establishes
+  the baseline orientation. Optional labelled sides are trusted anchors.
+- A visual request contains the prepared anchors plus one extra, never user
+  filenames or asset names as instructions. The image encoder supplies actual
+  visual embeddings to Strata; this is not metadata-only planning.
+- The observation schema is fixed: `direction`, `confidence`, `same_subject`,
+  `pose_consistent`, `usable`, `reason`. No generated commands, paths or settings
+  are executed. Invalid output skips that candidate without an inference retry.
+- Missing directions can be filled when model-reported confidence is at least
+  0.85 and subject, pose and visibility checks all pass. Ambiguous, diagonal,
+  above/below, obstructed, mismatched or changed-pose photos are skipped.
+- Labelled anchors stay unless an extra is compatible, confidence is at least
+  0.95, and its CPU quality score exceeds the anchor by at least 0.15. That score
+  combines foreground sharpness, source resolution and exposure. Ties are stable.
+- Exact duplicate bytes cannot establish an independent view. Copies of anchors
+  skip visual inference. Confidence is model-reported, not a calibrated
+  probability; subject/pose checks are fallible and are not identity verification.
+- At most one photo per supported direction reaches the shape model. One selected
+  image uses Hunyuan3D-2.1; two to four use Hunyuan3D-2mv. Top/bottom views have no
+  supported conditioning slot in this workflow.
 
-The JSON request retains `views` for cardinal uploads and adds `extra_views`:
+The settings planner remains a separate advanced option. Extras automatically
+trigger vision even with the preset planner. Labelled photos alone need no
+Strata runtime. A missing vision configuration stops extra-photo jobs with a
+setup message; an engine error stops the stage with diagnostics. It does not
+silently pretend the extras were analysed.
+
+## Runtime and evidence
+
+Preparation is sequential on CPU. Recognition runs in its own hidden owned
+Windows process tree with a 900-second deadline, cancellation, no automatic
+restart and an available-RAM guard. It needs 12 GiB available RAM before loading
+and stops below 2 GiB. The engine and encoder must exit and release allocations
+before generation; RAM/VRAM are checked again before loading Hunyuan. Existing
+mesh attempt limits remain unchanged.
+
+Per-job files under ignored `outputs/web-jobs/JOB_ID/`:
+
+- `uploads/`: unchanged originals.
+- `prepared/candidates/` and `prepared-records.json`: cutouts, hashes, CPU metrics.
+- `vision/`: actual model replies, engine diagnostics and image exchanges.
+- `vision-analysis.json`: validated observations and token/request metadata.
+- `view-selection.json`: every decision and the actual selected mapping.
+- `prepared/provenance.json`: selected canonical cutout hashes and source IDs.
+
+The UI shows the audit; the selection report is downloadable and included in the
+Unity ZIP. `submitted_view_count` counts all uploads; `views_used` contains only
+the selected model directions. Legacy stored jobs and their old angle-based
+selection manifests remain readable.
+
+## API
 
 ```json
 {
   "name": "Example object",
   "views": {"front": "BASE64_IMAGE", "left": "BASE64_IMAGE"},
   "extra_views": [
-    {"name": "front alternate", "azimuth": 10, "image": "BASE64_IMAGE"},
-    {"name": "back", "azimuth": 180, "image": "BASE64_IMAGE"}
+    {"name": "another photo", "image": "BASE64_IMAGE"},
+    {"name": "another reference", "image": "BASE64_IMAGE"}
   ],
-  "view_strategy": "cardinal_selection_v1"
+  "view_strategy": "hybrid_vision_v1"
 }
 ```
 
-Image identifiers and storage filenames are generated by the server. User names
-remain display metadata. Unsupported strategies such as `fuse_all` are rejected.
+`views.front` is required. Extra entries omit `azimuth`; submitting one is rejected
+with a migration message. Limits remain 12 MiB / 20 megapixels per image, 16
+images / 48 MiB combined, and 68 MiB encoded HTTP body. User names are display
+metadata; storage IDs and paths are generated by the server.
 
-## Remaining requirement for true all-angle reconstruction
+## Model boundary and verification
 
-To condition geometry on more than four independent camera directions, this
-project needs a different supported model/backend or a trained extension, plus
-new memory and quality validation. Camera-based photogrammetry is another
-possible backend, but requires overlapping imagery and camera-pose estimation;
-it is not supplied by this change. Combining independently generated meshes is
-also not a substitute for a validated all-view reconstruction method.
+The pinned Tencent `MVImageProcessorV2` maps front/left/back/right to four
+indices. `DinoImageEncoderMV` constructs four sinusoidal direction embeddings;
+this is not an arbitrary camera-pose interface. A different supported backend
+or trained extension is needed for true all-view reconstruction.
 
-## Verification
+- [View mapping](https://github.com/Tencent-Hunyuan/Hunyuan3D-2/blob/f8db63096c8282cb27354314d896feba5ba6ff8a/hy3dgen/shapegen/preprocessors.py)
+- [Four-view conditioner](https://github.com/Tencent-Hunyuan/Hunyuan3D-2/blob/f8db63096c8282cb27354314d896feba5ba6ff8a/hy3dgen/shapegen/models/conditioner.py)
+- [Strata vision documentation](https://github.com/Niko1221/Strata/blob/v0.1.41/docs/DETAILS.md#images-vision)
 
-CPU tests exercise six-photo preservation and selection, a sharp alternate
-replacing a blurred front, angle wraparound, unsupported diagonals, duplicate
-detection, invalid metadata, 16/17-image limits, aggregate size bounds, selection
-manifest requirements and front-image recovery. A pipeline test uses real
-image preparation with stubbed model/export boundaries to check that only the
-selected directions are passed onward and that the Unity ZIP contains the
-audit. HTTP tests cover candidate previews and selection downloads as well as
-existing token/origin/path protections.
+Automated tests cover angle-free requests, caps, trusted anchors, conservative
+replacement, missing/uncertain/invalid observations, incompatible subjects and
+poses, duplicates, provenance, selected model inputs, audit packaging, HTTP
+boundaries and stopping before generation after a vision failure. A JavaScript
+interaction test exercises multi-file drops, removal and angle-free submission.
+Run:
 
-No new GPU inference or Unity Editor import is claimed by these tests. The FBX
-export implementation is unchanged; its earlier validation is documented in
-WEB_APP.md. The new workflow has not demonstrated better likeness than the
-original four-view workflow.
+```powershell
+.\.venv\Scripts\python.exe -B -m unittest discover -s scripts -p 'test_*.py'
+node scripts/test_upload_ui.mjs
+node --check web/app.js
+```
 
-Browser verification exercised multi-file extra uploads, camera-angle entry,
-six-photo submission and the expandable selected/submitted report in an isolated
-CPU-only preview. That preview explicitly stopped after selection; it did not
-claim a generated model. The primary app and other worktrees were left untouched.
+A real Strata vision check using the official front as its sole anchor selected
+the unlabelled left/back example images and excluded a repeated front. Native
+HTTP/browser validation then completed that selection, Hunyuan generation and a
+50,000-triangle FBX, independently reopened by Blender. A separate real six-photo
+check retained three labelled anchors, declined an equivalent alternate, rejected
+a different character and skipped a duplicate. These examples do not establish
+general recognition accuracy or reconstruction quality. Details are recorded in NEXT_STEPS.md. Private
+observations, exact host resources, outputs and screenshots stay ignored.

@@ -16,12 +16,12 @@ import threading
 import time
 from urllib.parse import urlparse
 import uuid
-import math
 
 from PIL import Image
 from filelock import FileLock
 from native_process import OwnedProcess
-from app_views import ANGLES, DIRECTIONS, MAX_CANDIDATES, MAX_TOTAL_BYTES, STRATEGY
+from app_views import ANGLES, DIRECTIONS, MAX_CANDIDATES, MAX_TOTAL_BYTES, HYBRID_STRATEGY
+from runtime_paths import asset_root
 
 ROOT = Path(__file__).resolve().parents[1]
 VIEWS = DIRECTIONS
@@ -66,19 +66,18 @@ def validate_request(data):
     extras = data.get('extra_views', [])
     if not isinstance(extras, list) or len(supplied) + len(extras) > MAX_CANDIDATES:
         raise ValueError(f'Upload at most {MAX_CANDIDATES} images in total')
-    if data.get('view_strategy', STRATEGY) != STRATEGY:
+    if data.get('view_strategy', HYBRID_STRATEGY) != HYBRID_STRATEGY:
         raise ValueError('This checkpoint supports selection of at most four cardinal views, not all-angle fusion')
     entries = [(view, view, ANGLES[view], encoded) for view, encoded in supplied.items()]
     for index, extra in enumerate(extras, 1):
         if not isinstance(extra, dict):
             raise ValueError('Invalid extra image')
-        azimuth = extra.get('azimuth')
-        if type(azimuth) not in (int, float) or not math.isfinite(azimuth) or not 0 <= azimuth < 360:
-            raise ValueError('Extra image angles must be numbers from 0 up to, but not including, 360')
+        if 'azimuth' in extra:
+            raise ValueError('Extra photos are recognized automatically; omit azimuth')
         label = extra.get('name', f'Extra image {index}')
         if not isinstance(label, str) or not 1 <= len(label.strip()) <= 80:
             raise ValueError('Extra image names must be between 1 and 80 characters')
-        entries.append((f'extra-{index:02}', label.strip(), azimuth, extra.get('image')))
+        entries.append((f'extra-{index:02}', label.strip(), None, extra.get('image')))
     views, candidates, total = {}, [], 0
     for name_key, label, azimuth, encoded in entries:
         if not isinstance(encoded, str) or len(encoded) > MAX_FILE * 4 // 3 + 4:
@@ -94,7 +93,7 @@ def validate_request(data):
                 raise ValueError('Use JPEG, PNG or WebP images, at least 64 pixels wide and tall, under 20 megapixels')
             image.verify()
         views[name_key] = content
-        candidates.append({'id': name_key, 'name': label, 'azimuth': azimuth})
+        candidates.append({'id': name_key, 'name': label, 'anchor': name_key if name_key in VIEWS else None})
     return name.strip(), settings, views, candidates
 
 
@@ -126,7 +125,7 @@ class Workshop:
             (folder / 'uploads' / f'{view}.image').write_bytes(content)
         created = time.time()
         job = {'id': job_id, 'name': name, 'settings': settings, 'views': [v for v in VIEWS if v in views],
-               'candidates': candidates, 'view_strategy': STRATEGY,
+               'candidates': candidates, 'view_strategy': HYBRID_STRATEGY,
                'created_at': created, 'created_utc': datetime.now(timezone.utc).isoformat()}
         (folder / 'job.json').write_text(json.dumps(job, indent=2))
         with self.db() as db:
@@ -227,11 +226,12 @@ def handler(workshop, port):
                 return self.send(200, workshop.list())
             if path == '/api/health':
                 return self.send(200, {'ready': True, 'mode': 'local', 'version': 1,
-                    'max_candidate_images': MAX_CANDIDATES, 'max_conditioned_views': 4, 'view_strategy': STRATEGY,
-                    'multiview_ready': (ROOT / 'models/hunyuan3d-2mv/hunyuan3d-dit-v2-mv/model.fp16.safetensors').is_file(),
-                    'single_view_ready': (ROOT / 'models/hunyuan3d-2.1/hunyuan3d-dit-v2-1/model.fp16.ckpt').is_file()})
+                    'max_candidate_images': MAX_CANDIDATES, 'max_conditioned_views': 4, 'view_strategy': HYBRID_STRATEGY,
+                    'vision_configured': (ROOT / 'work/strata-vision.json').is_file(),
+                    'multiview_ready': (asset_root() / 'models/hunyuan3d-2mv/hunyuan3d-dit-v2-mv/model.fp16.safetensors').is_file(),
+                    'single_view_ready': (asset_root() / 'models/hunyuan3d-2.1/hunyuan3d-dit-v2-1/model.fp16.ckpt').is_file()})
             if path in ('/api/demo/front', '/api/demo/left', '/api/demo/back'):
-                demo = ROOT / 'work/vendor/Hunyuan3D-2/assets/example_mv_images/1' / (path.rsplit('/', 1)[1] + '.png')
+                demo = asset_root() / 'work/vendor/Hunyuan3D-2/assets/example_mv_images/1' / (path.rsplit('/', 1)[1] + '.png')
                 if demo.is_file():
                     return self.send(200, demo.read_bytes(), 'image/png')
                 return self.send(404, {'error': 'Example images are not installed'})

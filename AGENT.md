@@ -2,10 +2,14 @@
 
 ## Objective and current scope
 
-This fork implements the owner's extra-angle request as an explicitly labelled
-candidate-selection workflow. Do not claim all uploaded angles condition the
-four-slot checkpoint. Retain every input and its selection reason. True
-all-angle fusion remains unsupported; see MORE_ANGLES.md.
+This fork implements the owner's hybrid selection request: front is required,
+back/left/right are optional trusted anchors, and extra photos have no manually
+entered angles. Use the project-owned Strata vision config to compare extras
+with the anchors, validate observations strictly, and skip uncertainty without
+requesting intervention. Preserve anchors unless a compatible extra is clearly
+stronger. Never claim all uploads condition the four-slot checkpoint. Retain
+every input and selection reason. True all-angle fusion remains unsupported;
+see MORE_ANGLES.md. Top/bottom reconstruction and textures remain separate.
 
 Owner steering on 22 October 2026 expands the scope to a local web app with
 image uploads, genuine multi-view generation, autonomous jobs and Unity FBX.

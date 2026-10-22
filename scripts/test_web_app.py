@@ -126,9 +126,14 @@ class WebTests(unittest.TestCase):
             self.assertEqual(response.status, 201)
             response.close()
             from test_app_views import request
-            from app_images import prepare_job
+            from app_images import prepare_job, finalize_job
+            from app_views import select_hybrid
+            from test_app_views import observation
             job_id = self.app.create(request())
-            prepare_job(self.app.jobs / job_id)
+            folder = self.app.jobs / job_id
+            prepare_job(folder)
+            records = json.loads((folder / 'prepared-records.json').read_text())
+            finalize_job(folder, records, select_hybrid(records, {'extra-01': observation()}))
             with urlopen(url+f'/api/jobs/{job_id}/files/selection') as response:
                 self.assertEqual(json.load(response)['submitted_count'],6)
                 self.assertIn('attachment',response.headers['Content-Disposition'])

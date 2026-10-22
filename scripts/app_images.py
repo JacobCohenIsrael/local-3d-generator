@@ -8,7 +8,8 @@ import shutil
 import numpy as np
 import onnxruntime as ort
 from PIL import Image, ImageOps
-from app_views import candidates_for, image_metrics, select_candidates
+from app_views import candidates_for, image_metrics, select_candidates, select_hybrid, HYBRID_STRATEGY
+from runtime_paths import asset_root
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -35,7 +36,7 @@ def prepare_job(folder):
                 options = ort.SessionOptions()
                 options.intra_op_num_threads = 4
                 options.inter_op_num_threads = 1
-                session = ort.InferenceSession(str(ROOT / f'models/segmentation/{model_name}.onnx'),
+                session = ort.InferenceSession(str(asset_root() / f'models/segmentation/{model_name}.onnx'),
                     sess_options=options, providers=['CPUExecutionProvider'])
             rgb = np.asarray(image.convert('RGB').resize((320, 320), Image.Resampling.LANCZOS), dtype=np.float32)
             rgb /= max(float(rgb.max()), 1)
@@ -56,7 +57,17 @@ def prepare_job(folder):
         records.append(dict(record, sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
                             size=list(image.size), metrics=image_metrics(image)))
         print(f'Prepared {view}: {image.size}', flush=True)
-    selection = select_candidates(records)
+    (folder / 'prepared-records.json').write_text(json.dumps(records, indent=2), encoding='utf-8')
+    if job.get('view_strategy') == HYBRID_STRATEGY and any(c['id'] not in ('front', 'left', 'back', 'right') for c in records):
+        if next((r for r in records if r['id'] == 'front'), {}).get('error'):
+            finalize_job(folder, records, select_hybrid(records))  # retain audit before failing
+        return None  # independent, bounded vision stage finalizes the selected inputs
+    selection = select_hybrid(records) if job.get('view_strategy') == HYBRID_STRATEGY else select_candidates(records)
+    return finalize_job(folder, records, selection)
+
+
+def finalize_job(folder, records, selection):
+    output = folder / 'prepared'
     (folder / 'view-selection.json').write_text(json.dumps(selection, indent=2), encoding='utf-8')
     if 'front' not in selection['selected']:
         raise ValueError('No usable front view after selection; supply a clear front image or a nearby alternate')
@@ -66,7 +77,7 @@ def prepare_job(folder):
         record = by_id[candidate_id]
         shutil.copy2(output / 'candidates' / f'{candidate_id}.png', output / f'{direction}.png')
         views[direction] = {key: record[key] for key in ('sha256', 'size', 'original_sha256')}
-        views[direction].update(candidate_id=candidate_id, azimuth=record['azimuth'])
+        views[direction].update(candidate_id=candidate_id, direction=direction)
     (output / 'provenance.json').write_text(json.dumps({'views': views, 'local_processing': True,
         'rgb_regenerated': False, 'selection_strategy': selection['strategy']}, indent=2), encoding='utf-8')
     print(f'{selection["submitted_count"]} submitted; {selection["selected_count"]} selected for conditioning', flush=True)
